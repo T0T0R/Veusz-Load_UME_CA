@@ -24,7 +24,7 @@
 # This software is a plugin for the Veusz software.
 
 
-
+import numpy
 import veusz.plugins as plugins
 
 class LoadUMEfilesPlugin(plugins.ToolsPlugin):
@@ -47,6 +47,7 @@ class LoadUMEfilesPlugin(plugins.ToolsPlugin):
         self.fields = [ 
             plugins.FieldFilename("filename_start", descr="First file"),
             plugins.FieldInt("nb_files", descr="Number of files", default=1, minval=1),
+            plugins.FieldInt("spread_size", descr="Width of current change", default=10, minval=1),
             ]
 
     def apply(self, interface, fields):
@@ -86,17 +87,65 @@ class LoadUMEfilesPlugin(plugins.ToolsPlugin):
             'change_surface': False, 'surface': 1.0, 'surface_unit': "cm2",
             'change_mass': False, 'mass': 1.0, 'mass_unit': "mg"}
 
+
+
+        interface.To('page1'); interface.To('graph1'); 
+
         # Import every file from (filepath_start) to (filepath_start + nb_files)
         for i in range(nb_files):
             interface.ImportFilePlugin(
                 'EC-LAB CA',
                 filepath_prefix + filename_root + f"{i + start_no:02d}" + "_" + filename_suffix,
                 **pluginargs,
-                linked=True,
-                encoding='utf_8',
-                prefix=filepath_start + "_" + f"{i + start_no:02d}",
-                suffix='',
-                renames={})
+                linked = True,
+                encoding = 'utf_8',
+                prefix = filename_root + f"{i + start_no:02d}" + "_",
+                suffix = '',
+                renames = {})
+
+            self.create_I_change_dataset(interface, filename_root + f"{i + start_no:02d}" + "_I Range", fields['spread_size'])
+
+            interface.Add('xy', name=filename_root + f"{i + start_no:02d}", autoadd=False)
+            interface.To(filename_root + f"{i + start_no:02d}")
+            interface.Set('marker', 'none')
+            interface.Set('xData', filename_root + f"{i + start_no:02d}" + "_time/s")
+            interface.Set('yData', filename_root + f"{i + start_no:02d}" + "_<I>/mA")
+            interface.To('..')
+
+    
+
+
+
+    def create_I_change_dataset(self, interface, I_range_dataset_str, spread_size=10):
+        I_range_dataset_np = interface.GetData(I_range_dataset_str)[0]
+
+        # Converts [56,56,56,57,57,57,57,58] to [0,0,0,1,0,0,0,1]
+        I_change_dataset = numpy.diff(I_range_dataset_np)
+
+        # Convolution of punctual changes in I_range (Dirac comb) with a window function
+        # (Bartlett window, triangular shape, faster to compute) to spread the changes of the current range
+        # over time (tweaked by $spread_size).
+        # This convolution increases the size of the dataset and the maxima are shifted of $spread_size / 2
+        # from the dirac comb peaks:
+        #
+        # $I_change_dataset:     _____|_____|_________|______________|_
+        # numpy.bartlett:        _/\_
+        # convolution:           ______/\____/\________/\_____________/\_
+        #
+        # This shift is not an issue because this dataset is used to mask artifacts caused BY this current
+        # change, and so are happening later.
+
+        I_change_dataset_spread = numpy.convolve(I_change_dataset, numpy.bartlett(spread_size))
+        
+        interface.SetData(I_range_dataset_str + "_change", I_change_dataset_spread, symerr=None, negerr=None, poserr=None)
+
+        # Creating a mask from the convoluted dataset:
+        #
+        # convolution:           ______/\____/\________/\_____________/\_
+        # mask:                  ‾‾‾‾‾‾__‾‾‾‾__‾‾‾‾‾‾‾‾__‾‾‾‾‾‾‾‾‾‾‾‾‾__‾
+
+        interface.SetData(I_range_dataset_str + "_change_M", numpy.logical_not(numpy.ma.make_mask(I_change_dataset_spread)), symerr=None, negerr=None, poserr=None)
+
 
 
 plugins.toolspluginregistry.append(LoadUMEfilesPlugin)
