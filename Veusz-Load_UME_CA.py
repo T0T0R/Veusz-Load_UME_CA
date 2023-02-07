@@ -147,14 +147,13 @@ class LoadUMEfilesPlugin(plugins.ToolsPlugin):
                 temp_dataset = True
             elif temp_dataset:                                          #   If it is masked, the temporary dataset
                 if len(dataset_It) > 0:
-                    datasets_It_list.append(numpy.stack(dataset_It))  # is done and added to the list of datasets.
+                    datasets_It_list.append(numpy.stack(dataset_It))    # is done and added to the list of datasets.
                 dataset_It = []                                         # The temporary dataset is reset.
                 temp_dataset = False
         
-        if len(dataset_It) > 0:                     # If the last values have been checked without
-            datasets_It_list.append(numpy.stack(dataset_It))     # being masked, the temporary dataset is added.
+        if len(dataset_It) > 0:                                 # If the last values have been checked without
+            datasets_It_list.append(numpy.stack(dataset_It))    # being masked, the temporary dataset is added.
         
-        #datasets_It_list = numpy.asarray(datasets_It_list) # Convert a list of list of tuples (I,t) into numpy 3D-array
 
 
         for no_dataset, dataset_It in enumerate(datasets_It_list):
