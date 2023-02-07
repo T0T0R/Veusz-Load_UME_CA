@@ -45,9 +45,11 @@ class LoadUMEfilesPlugin(plugins.ToolsPlugin):
     def __init__(self):
         """Make list of fields."""
         self.fields = [ 
-            plugins.FieldFilename("filename_start", descr="First file"),
-            plugins.FieldInt("nb_files", descr="Number of files", default=1, minval=1),
-            plugins.FieldInt("spread_size", descr="Width of current change", default=10, minval=4),
+            plugins.FieldFilename('filename_start', descr="First file"),
+            plugins.FieldInt('nb_files', descr="Number of files", default=1, minval=1),
+            plugins.FieldInt('spread_size', descr="Width of current change", default=10, minval=4),
+            plugins.FieldColormap('colormap', descr="Colormap of the curves", default="spectrum2"),
+            plugins.FieldBool('invert_colormap', descr="Invert colormap", default=False),
             ]
 
     def apply(self, interface, fields):
@@ -86,6 +88,11 @@ class LoadUMEfilesPlugin(plugins.ToolsPlugin):
             'extract_cycles': False, 'extract_steps': False, 'import_all_data': True,
             'change_surface': False, 'surface': 1.0, 'surface_unit': "cm2",
             'change_mass': False, 'mass': 1.0, 'mass_unit': "mg"}
+        
+        cvals = interface.GetColormap(
+                                        fields['colormap'],
+                                        invert=fields['invert_colormap'],
+                                        nvals = max(1, nb_files))
 
 
 
@@ -113,13 +120,27 @@ class LoadUMEfilesPlugin(plugins.ToolsPlugin):
             interface.Set('marker', 'none')
             interface.Set('xData', filename_root + f"{i + start_no:02d}" + "_time/s")
             interface.Set('yData', filename_root + f"{i + start_no:02d}" + "_<I>/mA")
+
+            if cvals[i, 3] == 255:
+                # opaque
+                col = "#%02x%02x%02x" % (cvals[i, 0], cvals[i, 1], cvals[i, 2])
+            else:
+                # with transparency
+                col = "#%02x%02x%02x%02x" % (cvals[i, 0], cvals[i, 1], cvals[i, 2], cvals[i, 3])
+
+            interface.Set('color', col)
+
+
+
+
+
             interface.To('..')
 
-            self.create_I_masked_plots(
-                                        interface,
-                                        filename_root + f"{i + start_no:02d}" + "_<I>/mA",
-                                        filename_root + f"{i + start_no:02d}" + "_time/s",
-                                        filename_root + f"{i + start_no:02d}" + "_I Range_change_M")
+            #self.create_I_masked_plots(
+            #                            interface,
+            #                            filename_root + f"{i + start_no:02d}" + "_<I>/mA",
+            #                            filename_root + f"{i + start_no:02d}" + "_time/s",
+            #                            filename_root + f"{i + start_no:02d}" + "_I Range_change_M")
 
 
     
@@ -157,10 +178,8 @@ class LoadUMEfilesPlugin(plugins.ToolsPlugin):
 
 
         for no_dataset, dataset_It in enumerate(datasets_It_list):
-            dataset_I = dataset_It[:,0]
-            dataset_t = dataset_It[:,1]
-            interface.SetData(dataset_I_full_str + "_" + str(no_dataset), dataset_I, symerr=None, negerr=None, poserr=None)
-            interface.SetData(dataset_t_full_str + "_" + str(no_dataset), dataset_t, symerr=None, negerr=None, poserr=None)
+            interface.SetData(dataset_I_full_str + "_" + str(no_dataset), dataset_It[:,0], symerr=None, negerr=None, poserr=None)
+            interface.SetData(dataset_t_full_str + "_" + str(no_dataset), dataset_It[:,1], symerr=None, negerr=None, poserr=None)
 
 
 
