@@ -105,7 +105,10 @@ class LoadUMEfilesPlugin(plugins.ToolsPlugin):
 
             self.create_I_change_dataset(interface, filename_root + f"{i + start_no:02d}" + "_I Range", fields['spread_size'])
 
-            interface.Add('xy', name=filename_root + f"{i + start_no:02d}", autoadd=False)
+            # If the xy plot does not already exists, create it.
+            if not (filename_root + f"{i + start_no:02d}" in interface.GetChildren(where='.')):
+                interface.Add('xy', name=filename_root + f"{i + start_no:02d}", autoadd=False)
+            
             interface.To(filename_root + f"{i + start_no:02d}")
             interface.Set('marker', 'none')
             interface.Set('xData', filename_root + f"{i + start_no:02d}" + "_time/s")
