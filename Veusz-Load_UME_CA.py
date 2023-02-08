@@ -48,7 +48,7 @@ class LoadUMEfilesPlugin(plugins.ToolsPlugin):
             plugins.FieldFilename('filename_start', descr="First file"),
             plugins.FieldInt('nb_files', descr="Number of files", default=1, minval=1),
             plugins.FieldCombo('current_unit', descr="Unit for current", default='nA', items=('mA', 'uA', 'nA', 'pA')),
-            plugins.FieldTextMulti('ref', descr="ref"),
+            plugins.FieldTextMulti('ref', descr="Experiments to remove from the colormap"),
             plugins.FieldInt('spread_size', descr="Width of current change", default=10, minval=4),
             plugins.FieldColormap('colormap', descr="Colormap of the curves", default="spectrum2"),
             plugins.FieldBool('invert_colormap', descr="Invert colormap", default=False),
@@ -137,8 +137,7 @@ class LoadUMEfilesPlugin(plugins.ToolsPlugin):
             elif fields['current_unit']=='pA':
                 current_unit_np = 1e9 * current_mA_np
                 current_unit_str = "pA"
-                
-        
+           
             interface.SetData(
                                 filename_root + f"{i + start_no:02d}" + "_<I>/" + current_unit_str,
                                 current_unit_np,
@@ -153,8 +152,14 @@ class LoadUMEfilesPlugin(plugins.ToolsPlugin):
             interface.Set('marker', 'none')
             interface.Set('xData', filename_root + f"{i + start_no:02d}" + "_time/s")
             interface.Set('yData', filename_root + f"{i + start_no:02d}" + "_<I>/" + current_unit_str)
+            interface.Root.page1.graph1.x.label.val = "Time (s)"
+            interface.Root.page1.graph1.x.MinorTicks.hide.val = True
+            interface.Root.page1.graph1.y.label.val = "Current (" + current_unit_str + ")"
+            interface.Root.page1.graph1.y.MinorTicks.hide.val = True
 
 
+
+            # Color of the experiments excluded from the colormap
             if not (filename_root + f"{i + start_no:02d}" in experiments_black):                
                 color = next(color_generator)
                 if color[3] == 255:
@@ -173,6 +178,7 @@ class LoadUMEfilesPlugin(plugins.ToolsPlugin):
 
 
             interface.To('..')
+            
 
             self.create_I_masked_plots(
                                         interface,
