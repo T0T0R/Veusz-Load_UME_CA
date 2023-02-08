@@ -47,6 +47,7 @@ class LoadUMEfilesPlugin(plugins.ToolsPlugin):
         self.fields = [ 
             plugins.FieldFilename('filename_start', descr="First file"),
             plugins.FieldInt('nb_files', descr="Number of files", default=1, minval=1),
+            plugins.FieldCombo('current_unit', descr="Unit for current", default='nA', items=('mA', 'uA', 'nA', 'pA')),
             plugins.FieldTextMulti('ref', descr="ref"),
             plugins.FieldInt('spread_size', descr="Width of current change", default=10, minval=4),
             plugins.FieldColormap('colormap', descr="Colormap of the curves", default="spectrum2"),
@@ -121,6 +122,29 @@ class LoadUMEfilesPlugin(plugins.ToolsPlugin):
 
             self.create_I_change_dataset(interface, filename_root + f"{i + start_no:02d}" + "_I Range", fields['spread_size'])
 
+            # Create a new dataset with current with the convenient unit.
+            current_mA_np = interface.GetData(filename_root + f"{i + start_no:02d}" + "_<I>/mA")[0]
+
+            if fields['current_unit']=='mA':
+                current_unit_np = current_mA_np
+                current_unit_str = "mA"
+            elif fields['current_unit']=='uA':
+                current_unit_np = 1e3 * current_mA_np
+                current_unit_str = "uA"
+            elif fields['current_unit']=='nA':
+                current_unit_np = 1e6 * current_mA_np
+                current_unit_str = "nA"
+            elif fields['current_unit']=='pA':
+                current_unit_np = 1e9 * current_mA_np
+                current_unit_str = "pA"
+                
+        
+            interface.SetData(
+                                filename_root + f"{i + start_no:02d}" + "_<I>/" + current_unit_str,
+                                current_unit_np,
+                                symerr=None, negerr=None, poserr=None)
+ 
+
             # If the xy plot does not already exist, create it.
             if not (filename_root + f"{i + start_no:02d}" in interface.GetChildren(where='.')):
                 interface.Add('xy', name=filename_root + f"{i + start_no:02d}", autoadd=False)
@@ -128,7 +152,7 @@ class LoadUMEfilesPlugin(plugins.ToolsPlugin):
             interface.To(filename_root + f"{i + start_no:02d}")
             interface.Set('marker', 'none')
             interface.Set('xData', filename_root + f"{i + start_no:02d}" + "_time/s")
-            interface.Set('yData', filename_root + f"{i + start_no:02d}" + "_<I>/mA")
+            interface.Set('yData', filename_root + f"{i + start_no:02d}" + "_<I>/" + current_unit_str)
 
 
             if not (filename_root + f"{i + start_no:02d}" in experiments_black):                
@@ -152,7 +176,7 @@ class LoadUMEfilesPlugin(plugins.ToolsPlugin):
 
             self.create_I_masked_plots(
                                         interface,
-                                        filename_root + f"{i + start_no:02d}" + "_<I>/mA",
+                                        filename_root + f"{i + start_no:02d}" + "_<I>/" + current_unit_str,
                                         filename_root + f"{i + start_no:02d}" + "_time/s",
                                         filename_root + f"{i + start_no:02d}" + "_I Range_change_M")
 
