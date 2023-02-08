@@ -126,24 +126,24 @@ class LoadUMEfilesPlugin(plugins.ToolsPlugin):
             current_mA_np = interface.GetData(filename_root + f"{i + start_no:02d}" + "_<I>/mA")[0]
 
             if fields['current_unit']=='mA':
-                current_unit_np = current_mA_np
                 current_unit_str = "mA"
             elif fields['current_unit']=='uA':
-                current_unit_np = 1e3 * current_mA_np
                 current_unit_str = "uA"
+                interface.SetDataExpression(filename_root + f"{i + start_no:02d}" + "_<I>/" + current_unit_str,
+                                            "`" + filename_root + f"{i + start_no:02d}" + "_<I>/mA" + "`*1e3",
+                                            linked=True)
             elif fields['current_unit']=='nA':
-                current_unit_np = 1e6 * current_mA_np
                 current_unit_str = "nA"
+                interface.SetDataExpression(filename_root + f"{i + start_no:02d}" + "_<I>/" + current_unit_str,
+                                            "`" + filename_root + f"{i + start_no:02d}" + "_<I>/mA" + "`*1e6",
+                                            linked=True)
             elif fields['current_unit']=='pA':
-                current_unit_np = 1e9 * current_mA_np
                 current_unit_str = "pA"
+                interface.SetDataExpression(filename_root + f"{i + start_no:02d}" + "_<I>/" + current_unit_str,
+                                            "`" + filename_root + f"{i + start_no:02d}" + "_<I>/mA" + "`*1e9",
+                                            linked=True)
            
-            interface.SetData(
-                                filename_root + f"{i + start_no:02d}" + "_<I>/" + current_unit_str,
-                                current_unit_np,
-                                symerr=None, negerr=None, poserr=None)
- 
-
+           
             # If the xy plot does not already exist, create it.
             if not (filename_root + f"{i + start_no:02d}" in interface.GetChildren(where='.')):
                 interface.Add('xy', name=filename_root + f"{i + start_no:02d}", autoadd=False)
