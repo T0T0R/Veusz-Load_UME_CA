@@ -60,7 +60,7 @@ class LoadUMEfilesPlugin(plugins.ToolsPlugin):
         fields: dict mapping field names to values
         """
         # List content: ["experiment_ca05", "experiment_ca07"]
-        experiments_black = list(filter(None, fields['ref']))
+        experiments_black = list(filter(None, fields['ref']))   # Remove empty strings, for instance in ["",""]
 
         nb_files = fields['nb_files']
 
@@ -122,8 +122,8 @@ class LoadUMEfilesPlugin(plugins.ToolsPlugin):
 
             self.create_I_change_dataset(interface, filename_root + f"{i + start_no:02d}" + "_I Range", fields['spread_size'])
 
-            # Create a new dataset with current with the convenient unit.
-            current_mA_np = interface.GetData(filename_root + f"{i + start_no:02d}" + "_<I>/mA")[0]
+
+            # Create a new current dataset with the convenient unit.
 
             if fields['current_unit']=='mA':
                 current_unit_str = "mA"
@@ -153,8 +153,12 @@ class LoadUMEfilesPlugin(plugins.ToolsPlugin):
             interface.Set('xData', filename_root + f"{i + start_no:02d}" + "_time/s")
             interface.Set('yData', filename_root + f"{i + start_no:02d}" + "_<I>/" + current_unit_str)
             interface.Root.page1.graph1.x.label.val = "Time (s)"
+            #interface.Root.page1.graph1.x.min.val = 'Auto'
+            #interface.Root.page1.graph1.x.max.val = 'Auto'
             interface.Root.page1.graph1.x.MinorTicks.hide.val = True
             interface.Root.page1.graph1.y.label.val = "Current (" + current_unit_str + ")"
+            #interface.Root.page1.graph1.y.min.val = 'Auto'
+            #interface.Root.page1.graph1.y.max.val = 'Auto'
             interface.Root.page1.graph1.y.MinorTicks.hide.val = True
 
 
@@ -197,6 +201,7 @@ class LoadUMEfilesPlugin(plugins.ToolsPlugin):
         dataset_I_mask_full_str is th name of mask dataset.
         Return nothing.
         """
+
         dataset_I_full = interface.GetData(dataset_I_full_str)[0]
         dataset_t_full = interface.GetData(dataset_t_full_str)[0]
         # The mask is longer than the dataset, so trim it at the end:
@@ -213,6 +218,7 @@ class LoadUMEfilesPlugin(plugins.ToolsPlugin):
 
         dataset_It = []
         temp_dataset = True
+
         for data_slice in dataset_It_full:          #   For every value of current/time
             if data_slice[2] == 1:                  # if it is not masked
                 dataset_It.append(data_slice[:2])   # add it to the temporary dataset.
