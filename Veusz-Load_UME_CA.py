@@ -19,7 +19,7 @@
 
 # Author: Arthur Langlard, arthur.langlard@univ-nantes.fr
 # Start of the project: 06-02-2023
-# Last modification: 06-02-2023
+# Last modification: 08-02-2023
 #
 # This software is a plugin for the Veusz software.
 
@@ -47,6 +47,7 @@ class LoadUMEfilesPlugin(plugins.ToolsPlugin):
         self.fields = [ 
             plugins.FieldFilename('filename_start', descr="First file"),
             plugins.FieldInt('nb_files', descr="Number of files", default=1, minval=1),
+            plugins.FieldTextMulti('ref', descr="ref"),
             plugins.FieldInt('spread_size', descr="Width of current change", default=10, minval=4),
             plugins.FieldColormap('colormap', descr="Colormap of the curves", default="spectrum2"),
             plugins.FieldBool('invert_colormap', descr="Invert colormap", default=False),
@@ -57,6 +58,8 @@ class LoadUMEfilesPlugin(plugins.ToolsPlugin):
         interface: veusz command line interface object (exporting commands)
         fields: dict mapping field names to values
         """
+        # List content: ["experiment_ca05", "experiment_ca07"]
+        experiments_black = list(filter(None, fields['ref']))
 
         nb_files = fields['nb_files']
 
@@ -81,7 +84,6 @@ class LoadUMEfilesPlugin(plugins.ToolsPlugin):
         # Int content: 05
         start_no = int(filename_start[-2:])                                 # Split the name at the dash _ and remove the 2 characters "ca".
 
-        filepaths = [filepath_prefix + filename_root + f"{i + start_no:02d}" + "_" + filename_suffix for i in range(nb_files)]
 
 
         pluginargs = {
@@ -89,11 +91,18 @@ class LoadUMEfilesPlugin(plugins.ToolsPlugin):
             'change_surface': False, 'surface': 1.0, 'surface_unit': "cm2",
             'change_mass': False, 'mass': 1.0, 'mass_unit': "mg"}
         
+        # Set color on all curves except the ones selected as references.
         cvals = interface.GetColormap(
                                         fields['colormap'],
                                         invert=fields['invert_colormap'],
-                                        nvals = max(1, nb_files))
+                                        nvals = max(1, nb_files-len(experiments_black)))
 
+        # For some reason, the colormap generates transparent black if onlys one point is aksed.
+        if nb_files-len(experiments_black) == 1 and cvals[0,0]==0 and cvals[0,1]==0 and cvals[0,2]==0 and cvals[0,3]==0:
+            cvals[0,:] = [0,0,0,255] # so generate opaque black instead.
+        
+        # color_generator gives the next color each time next(color_generator) is called.
+        color_generator = (color for color in cvals)
 
 
         interface.To('page1'); interface.To('graph1'); 
@@ -112,7 +121,7 @@ class LoadUMEfilesPlugin(plugins.ToolsPlugin):
 
             self.create_I_change_dataset(interface, filename_root + f"{i + start_no:02d}" + "_I Range", fields['spread_size'])
 
-            # If the xy plot does not already exists, create it.
+            # If the xy plot does not already exist, create it.
             if not (filename_root + f"{i + start_no:02d}" in interface.GetChildren(where='.')):
                 interface.Add('xy', name=filename_root + f"{i + start_no:02d}", autoadd=False)
             
@@ -121,12 +130,17 @@ class LoadUMEfilesPlugin(plugins.ToolsPlugin):
             interface.Set('xData', filename_root + f"{i + start_no:02d}" + "_time/s")
             interface.Set('yData', filename_root + f"{i + start_no:02d}" + "_<I>/mA")
 
-            if cvals[i, 3] == 255:
-                # opaque
-                col = "#%02x%02x%02x" % (cvals[i, 0], cvals[i, 1], cvals[i, 2])
+
+            if not (filename_root + f"{i + start_no:02d}" in experiments_black):                
+                color = next(color_generator)
+                if color[3] == 255:
+                    # opaque
+                    col = "#%02x%02x%02x" % (color[0], color[1], color[2])
+                else:
+                    # with transparency
+                    col = "#%02x%02x%02x%02x" % (color[0], color[1], color[2], color[3])
             else:
-                # with transparency
-                col = "#%02x%02x%02x%02x" % (cvals[i, 0], cvals[i, 1], cvals[i, 2], cvals[i, 3])
+                col = "#000000ff"
 
             interface.Set('color', col)
 
@@ -136,16 +150,23 @@ class LoadUMEfilesPlugin(plugins.ToolsPlugin):
 
             interface.To('..')
 
-            #self.create_I_masked_plots(
-            #                            interface,
-            #                            filename_root + f"{i + start_no:02d}" + "_<I>/mA",
-            #                            filename_root + f"{i + start_no:02d}" + "_time/s",
-            #                            filename_root + f"{i + start_no:02d}" + "_I Range_change_M")
+            self.create_I_masked_plots(
+                                        interface,
+                                        filename_root + f"{i + start_no:02d}" + "_<I>/mA",
+                                        filename_root + f"{i + start_no:02d}" + "_time/s",
+                                        filename_root + f"{i + start_no:02d}" + "_I Range_change_M")
 
 
     
 
     def create_I_masked_plots(self, interface, dataset_I_full_str, dataset_t_full_str, dataset_I_mask_full_str,):
+        """Create the multiple datasets from the splitting of the original dataset, according to 
+        the mask provided.
+        dataset_I_full_str is the name of the Y-dataset to split.
+        dataset_t_full_str is the name of the X-dataset to split.
+        dataset_I_mask_full_str is th name of mask dataset.
+        Return nothing.
+        """
         dataset_I_full = interface.GetData(dataset_I_full_str)[0]
         dataset_t_full = interface.GetData(dataset_t_full_str)[0]
         # The mask is longer than the dataset, so trim it at the end:
@@ -172,8 +193,8 @@ class LoadUMEfilesPlugin(plugins.ToolsPlugin):
                 dataset_It = []                                         # The temporary dataset is reset.
                 temp_dataset = False
         
-        if len(dataset_It) > 0:                                 # If the last values have been checked without
-            datasets_It_list.append(numpy.stack(dataset_It))    # being masked, the temporary dataset is added.
+        if len(dataset_It) > 0:                                 # If there are still values at the end that are
+            datasets_It_list.append(numpy.stack(dataset_It))    # not masked, the temporary dataset is added.
         
 
 
@@ -191,7 +212,7 @@ class LoadUMEfilesPlugin(plugins.ToolsPlugin):
         when the current range changes.
         I_range_dataset_str is the name of the dataset containing the current ranges.
         spread_size is the number of values to be masked after a current range change.
-        Return None.
+        Return nothing.
         """
 
         I_range_dataset_np = interface.GetData(I_range_dataset_str)[0]
