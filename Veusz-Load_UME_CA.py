@@ -178,9 +178,6 @@ class LoadUMEfilesPlugin(plugins.ToolsPlugin):
             interface.Set('color', col)
 
 
-
-
-
             interface.To('..')
             
             if not fields['dataset_masked_type']=='None':
@@ -192,7 +189,37 @@ class LoadUMEfilesPlugin(plugins.ToolsPlugin):
                                             filename_root + f"{i + start_no:02d}" + "_I Range_change_M")
 
 
+
+
+
+
+    def plot_masked(self, interface, no_dataset, dataset_I_full_str, dataset_t_full_str):
+        """Add a xy widget to plot a portion of a dataset.
+        no_dataset is the number of the portion.
+        dataset_I_full_str is the full name of the portion to plot ("experiment_ca05_<I>/mA").
+        dataset_t_full_str is the full name of the portion to plot ("experiment_ca05_time/s").
+        Return nothing.
+        """
+
+        # Get the name of the complete graph (with no masked data) "experiment_ca05"
+        experiment_name = "_".join(dataset_I_full_str.split("_")[:-1])
+        color = interface.Root['page1']['graph1'][experiment_name].color.val
+        interface.Root['page1']['graph1'][experiment_name].hide.val = True
+
+        if not (experiment_name + "_" + str(no_dataset) in interface.GetChildren(where='.')):
+            interface.Add('xy', name=experiment_name + "_" + str(no_dataset), autoadd=False)
     
+        interface.To(experiment_name + "_" + str(no_dataset))
+        interface.Set('marker', 'none')
+        interface.Set('xData', dataset_t_full_str + "_" + str(no_dataset))
+        interface.Set('yData', dataset_I_full_str + "_" + str(no_dataset))
+        interface.Set('color', color)
+        interface.To('..')
+
+
+
+
+
 
     def create_I_masked_plots(self, interface, dataset_masked_type, dataset_I_full_str, dataset_t_full_str, dataset_I_mask_full_str,):
         """Create the multiple datasets from the splitting of the original dataset, according to 
@@ -208,6 +235,9 @@ class LoadUMEfilesPlugin(plugins.ToolsPlugin):
         # The mask is longer than the dataset, so trim it at the end:
         dataset_I_mask_full = interface.GetData(dataset_I_mask_full_str)[0][:len(dataset_I_full)].astype(int)
 
+
+
+        #************************** Using expression datasets for storing data *************************
 
         if dataset_masked_type == 'Expression dataset':
             # Get a list of the start index and end index of every reliables data:
@@ -245,14 +275,12 @@ class LoadUMEfilesPlugin(plugins.ToolsPlugin):
                 interface.SetDataExpression(dataset_I_full_str + "_" + str(no_dataset),
                                                 "`" + dataset_I_full_str + "`[" + str(i_start) + ":" + str(i_stop) + "]",
                                                 linked=True)
-
-            
-
-
-
-
-
-
+                interface.SetDataExpression(dataset_t_full_str + "_" + str(no_dataset),
+                                                "`" + dataset_t_full_str + "`[" + str(i_start) + ":" + str(i_stop) + "]",
+                                                linked=True)
+                
+                self.plot_masked(interface, no_dataset, dataset_I_full_str, dataset_t_full_str)
+                
 
 
 
@@ -261,6 +289,13 @@ class LoadUMEfilesPlugin(plugins.ToolsPlugin):
 
 
 
+
+
+
+
+
+
+        #************************** Using 1D datasets for storing data (raw data) *************************
 
         if dataset_masked_type == '1D dataset':
             dataset_It_full = numpy.column_stack((dataset_I_full, dataset_t_full, dataset_I_mask_full))
@@ -293,6 +328,7 @@ class LoadUMEfilesPlugin(plugins.ToolsPlugin):
             for no_dataset, dataset_It in enumerate(datasets_It_list):
                 interface.SetData(dataset_I_full_str + "_" + str(no_dataset), dataset_It[:,0], symerr=None, negerr=None, poserr=None)
                 interface.SetData(dataset_t_full_str + "_" + str(no_dataset), dataset_It[:,1], symerr=None, negerr=None, poserr=None)
+                self.plot_masked(interface, no_dataset, dataset_I_full_str, dataset_t_full_str)
 
 
 
@@ -327,7 +363,9 @@ class LoadUMEfilesPlugin(plugins.ToolsPlugin):
 
         I_change_dataset_spread = numpy.convolve(I_change_dataset, numpy.bartlett(spread_size))
         
-        interface.SetData(I_range_dataset_str + "_change", I_change_dataset_spread, symerr=None, negerr=None, poserr=None)
+        # The line below is a dataset containing the differential of the current range. 
+        # Uncomment this line for debug purposes:
+        #interface.SetData(I_range_dataset_str + "_change", I_change_dataset_spread, symerr=None, negerr=None, poserr=None)
 
         # Creating a mask from the convoluted dataset:
         #
