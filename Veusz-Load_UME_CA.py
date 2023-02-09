@@ -51,6 +51,7 @@ class LoadUMEfilesPlugin(plugins.ToolsPlugin):
             plugins.FieldCombo('current_unit', descr="Unit for current", default='nA', items=('mA', 'uA', 'nA', 'pA')),
             plugins.FieldTextMulti('ref', descr="Experiments to remove from the colormap"),
             plugins.FieldInt('spread_size', descr="Width of current change", default=10, minval=4),
+            plugins.FieldCombo('dataset_masked_type', descr="Dataset type for masked data", default='Expression dataset', items=('No masked data', 'Expression dataset', '1D dataset')),
             plugins.FieldColormap('colormap', descr="Colormap of the curves", default="spectrum2"),
             plugins.FieldBool('invert_colormap', descr="Invert colormap", default=False),
             ]
@@ -182,17 +183,18 @@ class LoadUMEfilesPlugin(plugins.ToolsPlugin):
 
             interface.To('..')
             
-
-            self.create_I_masked_plots(
-                                        interface,
-                                        filename_root + f"{i + start_no:02d}" + "_<I>/" + current_unit_str,
-                                        filename_root + f"{i + start_no:02d}" + "_time/s",
-                                        filename_root + f"{i + start_no:02d}" + "_I Range_change_M")
+            if not fields['dataset_masked_type']=='None':
+                self.create_I_masked_plots(
+                                            interface,
+                                            fields['dataset_masked_type'],
+                                            filename_root + f"{i + start_no:02d}" + "_<I>/" + current_unit_str,
+                                            filename_root + f"{i + start_no:02d}" + "_time/s",
+                                            filename_root + f"{i + start_no:02d}" + "_I Range_change_M")
 
 
     
 
-    def create_I_masked_plots(self, interface, dataset_I_full_str, dataset_t_full_str, dataset_I_mask_full_str,):
+    def create_I_masked_plots(self, interface, dataset_masked_type, dataset_I_full_str, dataset_t_full_str, dataset_I_mask_full_str,):
         """Create the multiple datasets from the splitting of the original dataset, according to 
         the mask provided.
         dataset_I_full_str is the name of the Y-dataset to split.
@@ -204,38 +206,93 @@ class LoadUMEfilesPlugin(plugins.ToolsPlugin):
         dataset_I_full = interface.GetData(dataset_I_full_str)[0]
         dataset_t_full = interface.GetData(dataset_t_full_str)[0]
         # The mask is longer than the dataset, so trim it at the end:
-        dataset_I_mask_full = interface.GetData(dataset_I_mask_full_str)[0][:len(dataset_I_full)]
-
-        dataset_It_full = numpy.column_stack((dataset_I_full, dataset_t_full, dataset_I_mask_full))
-        datasets_It_list = []
-        # [(I0,t0,m0)   [(I0,t0,m0)    [(I0,t0,m0)
-        #  (I1,t1,m1)    (I1,t1,m1)],   (I1,t1,m1)
-        #  (I2,t2,m2)                   (I2,t2,m2)]
-        #  (I3,t3,m3)],
-
-        
-
-        dataset_It = []
-        temp_dataset = True
-
-        for data_slice in dataset_It_full:          #   For every value of current/time
-            if data_slice[2] == 1:                  # if it is not masked
-                dataset_It.append(data_slice[:2])   # add it to the temporary dataset.
-                temp_dataset = True
-            elif temp_dataset:                                          #   If it is masked, the temporary dataset
-                if len(dataset_It) > 0:
-                    datasets_It_list.append(numpy.stack(dataset_It))    # is done and added to the list of datasets.
-                dataset_It = []                                         # The temporary dataset is reset.
-                temp_dataset = False
-        
-        if len(dataset_It) > 0:                                 # If there are still values at the end that are
-            datasets_It_list.append(numpy.stack(dataset_It))    # not masked, the temporary dataset is added.
-        
+        dataset_I_mask_full = interface.GetData(dataset_I_mask_full_str)[0][:len(dataset_I_full)].astype(int)
 
 
-        for no_dataset, dataset_It in enumerate(datasets_It_list):
-            interface.SetData(dataset_I_full_str + "_" + str(no_dataset), dataset_It[:,0], symerr=None, negerr=None, poserr=None)
-            interface.SetData(dataset_t_full_str + "_" + str(no_dataset), dataset_It[:,1], symerr=None, negerr=None, poserr=None)
+        if dataset_masked_type == 'Expression dataset':
+            # Get a list of the start index and end index of every reliables data:
+            #
+            # Index: 0  1  2  3  4  5  6  7  8  9  10 11 12 13 14 15 16 17 18 19
+            #
+            # Mask:  ‾  ‾  ‾ |_  _ |‾  ‾  ‾  ‾ |_  __|‾‾ ‾‾ ‾‾|__|‾‾ ‾‾ ‾‾ ‾‾ ‾‾
+            #
+            # List: [(0,3), (5,9), (11,14), (15,20)]
+
+            list_indices = []
+            start_index, end_index = -1, -1
+            prev_mask_value = 0
+
+            for index, mask_value in enumerate(dataset_I_mask_full):
+
+                if mask_value - prev_mask_value > 0:            # If __|‾‾
+                    start_index = index
+                elif mask_value - prev_mask_value < 0:          # If ‾‾|__
+                    end_index = index
+                    list_indices.append((start_index, end_index))
+                
+                prev_mask_value = mask_value
+            
+            if end_index < start_index: # If the mask is 1 at the end, give a stop index.
+                end_index = len(dataset_I_mask_full)
+                list_indices.append((start_index, end_index))
+
+
+
+
+            # Create corresponding expression datasets with this list of indices.
+            for no_dataset, index_tuple in enumerate(list_indices):
+                i_start, i_stop = index_tuple[0], index_tuple[1]
+                interface.SetDataExpression(dataset_I_full_str + "_" + str(no_dataset),
+                                                "`" + dataset_I_full_str + "`[" + str(i_start) + ":" + str(i_stop) + "]",
+                                                linked=True)
+
+            
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        if dataset_masked_type == '1D dataset':
+            dataset_It_full = numpy.column_stack((dataset_I_full, dataset_t_full, dataset_I_mask_full))
+            datasets_It_list = []
+            # [(I0,t0,m0)   [(I0,t0,m0)    [(I0,t0,m0)
+            #  (I1,t1,m1)    (I1,t1,m1)],   (I1,t1,m1)
+            #  (I2,t2,m2)                   (I2,t2,m2)]
+            #  (I3,t3,m3)],
+
+            
+
+            dataset_It = []
+            temp_dataset = True
+
+            for data_slice in dataset_It_full:          #   For every value of current/time
+                if data_slice[2] == 1:                  # if it is not masked
+                    dataset_It.append(data_slice[:2])   # add it to the temporary dataset.
+                    temp_dataset = True
+                elif temp_dataset:                                          #   If it is masked, the temporary dataset
+                    if len(dataset_It) > 0:
+                        datasets_It_list.append(numpy.stack(dataset_It))    # is done and added to the list of datasets.
+                    dataset_It = []                                         # The temporary dataset is reset.
+                    temp_dataset = False
+            
+            if len(dataset_It) > 0:                                 # If there are still values at the end that are
+                datasets_It_list.append(numpy.stack(dataset_It))    # not masked, the temporary dataset is added.
+            
+
+
+            for no_dataset, dataset_It in enumerate(datasets_It_list):
+                interface.SetData(dataset_I_full_str + "_" + str(no_dataset), dataset_It[:,0], symerr=None, negerr=None, poserr=None)
+                interface.SetData(dataset_t_full_str + "_" + str(no_dataset), dataset_It[:,1], symerr=None, negerr=None, poserr=None)
 
 
 
