@@ -41,6 +41,7 @@ class LoadUMEfilesPlugin(plugins.ToolsPlugin):
     description_short = 'Load files related to an experiment of vesicles nano-impacts at an ultramicroelectrode.'
     # text to appear in dialog box
     description_full = 'Load files related to an experiment of vesicles nano-impacts at an ultramicroelectrode.'
+    
 
     def __init__(self):
         """Make list of fields."""
@@ -153,12 +154,10 @@ class LoadUMEfilesPlugin(plugins.ToolsPlugin):
             interface.Set('xData', filename_root + f"{i + start_no:02d}" + "_time/s")
             interface.Set('yData', filename_root + f"{i + start_no:02d}" + "_<I>/" + current_unit_str)
             interface.Root.page1.graph1.x.label.val = "Time (s)"
-            #interface.Root.page1.graph1.x.min.val = 'Auto'
-            #interface.Root.page1.graph1.x.max.val = 'Auto'
+            
             interface.Root.page1.graph1.x.MinorTicks.hide.val = True
             interface.Root.page1.graph1.y.label.val = "Current (" + current_unit_str + ")"
-            #interface.Root.page1.graph1.y.min.val = 'Auto'
-            #interface.Root.page1.graph1.y.max.val = 'Auto'
+            
             interface.Root.page1.graph1.y.MinorTicks.hide.val = True
 
 
