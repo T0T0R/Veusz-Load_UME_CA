@@ -33,14 +33,14 @@ class LoadUMEfilesPlugin(plugins.ToolsPlugin):
     This comprises chronoamperometry (CA) an cyclic voltametry (CV) files."""
 
     # a tuple of strings building up menu to place plugin on
-    menu = ('Load UME files',)
+    menu = ("Load UME files", "Chronoamperometric measurements")
     # unique name for plugin
-    name = 'Load UME files'
+    name = "Chronoamperometric measurements"
 
     # name to appear on status tool bar
-    description_short = 'Load files related to an experiment of vesicles nano-impacts at an ultramicroelectrode.'
+    description_short = "Load chronoamperometric files related to an experiment of vesicles nano-impacts at an ultramicroelectrode."
     # text to appear in dialog box
-    description_full = 'Load files related to an experiment of vesicles nano-impacts at an ultramicroelectrode.'
+    description_full = description_short
     
 
     def __init__(self):
