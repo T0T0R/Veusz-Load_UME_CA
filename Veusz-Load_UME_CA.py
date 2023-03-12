@@ -30,7 +30,7 @@ import veusz.plugins as plugins
 class LoadUMEfilesPlugin(plugins.ToolsPlugin):
     """Load all files related to an experiment of vesicles nano-impacts at
     a ultramicroelectrode (UME).
-    This comprises chronoamperometry (CA) an cyclic voltametry (CV) files."""
+    This comprises chronoamperometry (CA) and cyclic voltametry (CV) files."""
 
     # a tuple of strings building up menu to place plugin on
     menu = ('Load UME files',)
