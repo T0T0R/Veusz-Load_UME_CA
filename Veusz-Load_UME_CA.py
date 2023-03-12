@@ -372,7 +372,7 @@ class LoadUMEfilesPlugin(plugins.ToolsPlugin):
         # convolution:           ______/\____/\________/\_____________/\_
         # mask:                  ‾‾‾‾‾‾__‾‾‾‾__‾‾‾‾‾‾‾‾__‾‾‾‾‾‾‾‾‾‾‾‾‾__‾
 
-        interface.SetData(I_range_dataset_str + "_change_M", numpy.logical_not(numpy.ma.make_mask(I_change_dataset_spread)), symerr=None, negerr=None, poserr=None)
+        interface.SetData(I_range_dataset_str + "_change_M", numpy.logical_not(numpy.ma.make_mask(I_change_dataset_spread, shrink=False)), symerr=None, negerr=None, poserr=None)
 
     
 
