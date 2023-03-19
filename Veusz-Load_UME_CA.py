@@ -502,6 +502,7 @@ class LoadUMEfilesPluginCV(plugins.ToolsPlugin):
             interface.Root.page1.graph1.x.label.val = "E_{we} (V) " + fields['ref_potential'] #*************************************************************
             
             interface.Root.page1.graph1.x.MinorTicks.hide.val = True
+            interface.Root.page1.graph1.x.autoRange.val = '+2%'
             interface.Root.page1.graph1.y.label.val = "Current (" + current_unit_str + ")"
             
             interface.Root.page1.graph1.y.MinorTicks.hide.val = True
