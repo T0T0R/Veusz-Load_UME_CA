@@ -167,10 +167,10 @@ class LoadUMEfilesPluginCA(plugins.ToolsPlugin):
             interface.Root['page_CA']['graph_CA'][experiment_id].yData.val = experiment_id + "_<I>/" + current_unit_str
             
             interface.Root.page_CA.graph_CA.x.MinorTicks.hide.val = True
+            interface.Root.page_CA.graph_CA.y.MinorTicks.hide.val = True
+
             interface.Root.page_CA.graph_CA.x.label.val = "Time (s)"
             interface.Root.page_CA.graph_CA.y.label.val = "Current (" + current_unit_str + ")"
-            
-            interface.Root.page_CA.graph_CA.y.MinorTicks.hide.val = True
 
 
 
@@ -470,18 +470,28 @@ class LoadUMEfilesPluginCV(plugins.ToolsPlugin):
         # color_generator gives the next color each time next(color_generator) is called.
         color_generator = (color for color in cvals)
 
+        if ("page1" in interface.GetChildren(where='/')):
+            interface.Root.page1.Remove()
 
-        interface.To('page1'); interface.To('graph1'); 
+        if not ("page_CV" in interface.GetChildren(where='/')):
+            interface.Root.Add('page', name="page_CV")
+        
+        # Remove old graph to update all the plotted data:
+        if ("graph_CV" in interface.GetChildren(where='/page_CV')):
+            interface.Root.page_CV.graph_CA.Remove()
+        interface.Root.page_CV.Add('graph', name="graph_CV")
 
         # Import every file from (filepath_start) to (filepath_start + nb_files)
         for i in range(nb_files):
+            experiment_id = filename_root + f"{i + start_no:02d}"
+
             interface.ImportFilePlugin(
                 'EC-LAB CV',
-                filepath_prefix + filename_root + f"{i + start_no:02d}" + "_" + filename_suffix,
+                filepath_prefix + experiment_id + "_" + filename_suffix,
                 **pluginargs,
                 linked = True,
                 encoding = 'utf_8',
-                prefix = filename_root + f"{i + start_no:02d}" + "_",
+                prefix = experiment_id + "_",
                 suffix = '',
                 renames = {})
 
@@ -492,41 +502,46 @@ class LoadUMEfilesPluginCV(plugins.ToolsPlugin):
                 current_unit_str = "mA"
             elif fields['current_unit']=='uA':
                 current_unit_str = "uA"
-                interface.SetDataExpression(filename_root + f"{i + start_no:02d}" + "_<I>/" + current_unit_str,
-                                            "`" + filename_root + f"{i + start_no:02d}" + "_<I>/mA" + "`*1e3",
+                interface.SetDataExpression(experiment_id + "_<I>/" + current_unit_str,
+                                            "`" + experiment_id + "_<I>/mA" + "`*1e3",
                                             linked=True)
             elif fields['current_unit']=='nA':
                 current_unit_str = "nA"
-                interface.SetDataExpression(filename_root + f"{i + start_no:02d}" + "_<I>/" + current_unit_str,
-                                            "`" + filename_root + f"{i + start_no:02d}" + "_<I>/mA" + "`*1e6",
+                interface.SetDataExpression(experiment_id + "_<I>/" + current_unit_str,
+                                            "`" + experiment_id + "_<I>/mA" + "`*1e6",
                                             linked=True)
             elif fields['current_unit']=='pA':
                 current_unit_str = "pA"
-                interface.SetDataExpression(filename_root + f"{i + start_no:02d}" + "_<I>/" + current_unit_str,
-                                            "`" + filename_root + f"{i + start_no:02d}" + "_<I>/mA" + "`*1e9",
+                interface.SetDataExpression(experiment_id + "_<I>/" + current_unit_str,
+                                            "`" + experiment_id + "_<I>/mA" + "`*1e9",
                                             linked=True)
            
            
             # If the xy plot does not already exist, create it.
-            if not (filename_root + f"{i + start_no:02d}" in interface.GetChildren(where='.')):
-                interface.Add('xy', name=filename_root + f"{i + start_no:02d}", autoadd=False)
+            if not (experiment_id in interface.GetChildren(where='/page_CV/graph_CV')):
+                interface.Root.page_CV.graph_CV.Add('xy', name=experiment_id, autoadd=False)
             
-            interface.To(filename_root + f"{i + start_no:02d}")
-            interface.Set('marker', 'none')
-            interface.Set('xData', filename_root + f"{i + start_no:02d}" + "_Ewe/V")
-            interface.Set('yData', filename_root + f"{i + start_no:02d}" + "_<I>/" + current_unit_str)
-            interface.Root.page1.graph1.x.label.val = "E_{we} (V) " + fields['ref_potential'] #*************************************************************
-            
-            interface.Root.page1.graph1.x.MinorTicks.hide.val = True
-            interface.Root.page1.graph1.x.autoRange.val = '+2%'
-            interface.Root.page1.graph1.y.label.val = "Current (" + current_unit_str + ")"
-            
-            interface.Root.page1.graph1.y.MinorTicks.hide.val = True
+            #interface.To(experiment_id)
+            #interface.Set('marker', 'none')
+            interface.Root['page_CV']['graph_CV'][experiment_id].marker.val = 'none'
+            #interface.Set('xData', experiment_id + "_Ewe/V")
+            interface.Root['page_CV']['graph_CV'][experiment_id].xData.val = experiment_id + "_Ewe/V"
 
+            #interface.Set('yData', experiment_id + "_<I>/" + current_unit_str)
+            interface.Root['page_CV']['graph_CV'][experiment_id].yData.val = experiment_id + "_<I>/" + current_unit_str
+
+            interface.Root.page_CV.graph_CV.x.MinorTicks.hide.val = True
+            interface.Root.page_CV.graph_CV.y.MinorTicks.hide.val = True
+
+            interface.Root.page_CV.graph_CV.x.autoRange.val = '+2%'
+
+            interface.Root.page_CV.graph_CV.x.label.val = "E_{we} (V) " + fields['ref_potential']
+            interface.Root.page_CV.graph_CV.y.label.val = "Current (" + current_unit_str + ")"
+            
 
 
             # Color of the experiments excluded from the colormap
-            if not (filename_root + f"{i + start_no:02d}" in experiments_black):                
+            if not (experiment_id in experiments_black):                
                 color = next(color_generator)
                 if color[3] == 255:
                     # opaque
@@ -537,10 +552,7 @@ class LoadUMEfilesPluginCV(plugins.ToolsPlugin):
             else:
                 col = "#000000ff"
 
-            interface.Set('color', col)
-
-
-            interface.To('..')
+            interface.Root['page_CV']['graph_CV'][experiment_id].color.val = col
             
 
 
