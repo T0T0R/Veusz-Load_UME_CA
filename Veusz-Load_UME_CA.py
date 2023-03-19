@@ -27,20 +27,20 @@
 import numpy
 import veusz.plugins as plugins
 
-class LoadUMEfilesPlugin(plugins.ToolsPlugin):
+class LoadUMEfilesPluginCA(plugins.ToolsPlugin):
     """Load all files related to an experiment of vesicles nano-impacts at
     a ultramicroelectrode (UME).
-    This comprises chronoamperometry (CA) and cyclic voltametry (CV) files."""
+    This comprises chronoamperometry (CA) files."""
 
     # a tuple of strings building up menu to place plugin on
-    menu = ('Load UME files',)
+    menu = ("Load UME files", "Chronoamperometric measurements")
     # unique name for plugin
-    name = 'Load UME files'
+    name = "Chronoamperometric measurements"
 
     # name to appear on status tool bar
-    description_short = 'Load files related to an experiment of vesicles nano-impacts at an ultramicroelectrode.'
+    description_short = "Load chronoamperometric files related to an experiment of vesicles nano-impacts at an ultramicroelectrode."
     # text to appear in dialog box
-    description_full = 'Load files related to an experiment of vesicles nano-impacts at an ultramicroelectrode.'
+    description_full = description_short
     
 
     def __init__(self):
@@ -286,15 +286,6 @@ class LoadUMEfilesPlugin(plugins.ToolsPlugin):
 
 
 
-
-
-
-
-
-
-
-
-
         #************************** Using 1D datasets for storing data (raw data) *************************
 
         if dataset_masked_type == '1D dataset':
@@ -374,7 +365,178 @@ class LoadUMEfilesPlugin(plugins.ToolsPlugin):
 
         interface.SetData(I_range_dataset_str + "_change_M", numpy.logical_not(numpy.ma.make_mask(I_change_dataset_spread, shrink=False)), symerr=None, negerr=None, poserr=None)
 
+
+
+
+
+
+
+
+
+
+
+class LoadUMEfilesPluginCV(plugins.ToolsPlugin):
+    """Load all files related to an experiment of vesicles nano-impacts at
+    a ultramicroelectrode (UME).
+    This comprises cyclic voltametry (CV) files."""
+
+    # a tuple of strings building up menu to place plugin on
+    menu = ("Load UME files", "Cyclic voltammetry measurements")
+    # unique name for plugin
+    name = "Cyclic voltammetry measurements"
+
+    # name to appear on status tool bar
+    description_short = "Load cyclic voltammetric files related to an experiment of vesicles nano-impacts at an ultramicroelectrode."
+    # text to appear in dialog box
+    description_full = description_short
+    
+
+    def __init__(self):
+        """Make list of fields."""
+        self.fields = [ 
+            plugins.FieldFilename('filename_start', descr="First file"),
+            plugins.FieldInt('nb_files', descr="Number of files", default=1, minval=1),
+            plugins.FieldCombo('current_unit', descr="Unit for current", default='nA', items=('mA', 'uA', 'nA', 'pA')),
+            plugins.FieldCombo('ref_potential', descr="Reference potential", default='vs pseudo-ref Pt', items=('', 'vs pseudo-ref Pt', 'vs Ag/AgCl sat.', 'vs SCE')),
+            plugins.FieldTextMulti('ref', descr="Experiments to remove from the colormap"),
+            plugins.FieldColormap('colormap', descr="Colormap of the curves", default="spectrum2"),
+            plugins.FieldBool('invert_colormap', descr="Invert colormap", default=False),
+            ]
+
+    def apply(self, interface, fields):
+        """Do the work of the plugin.
+        interface: veusz command line interface object (exporting commands)
+        fields: dict mapping field names to values
+        """
+        # List content: ["experiment_ca05", "experiment_ca07"]
+        experiments_black = list(filter(None, fields['ref']))   # Remove empty strings, for instance in ["",""]
+
+        nb_files = fields['nb_files']
+
+        # String content: "C:/----/experiment_ca05_C01.mpt"
+        filepath_start = fields['filename_start']
+        
+        # String content: "C:/----/"
+        filepath_prefix = "/".join(filepath_start.split("/")[:-1]) + "/"    # Get the directory of the file.
+
+        # String content: "experiment_ca05_C01.mpt"
+        filename_suffix_start = filepath_start.split('/')[-1]               # Remove all the path (containing /) to keep the filename.
+
+        # String content: "C:/----/experiment_ca05"
+        filename_start = "_".join(filename_suffix_start.split("_")[:-1])    # Remove the "_Cxxxx.mpt" at the end.
+
+        # String content: "C:/----/experiment_ca"
+        filename_root = filename_start[:-2]                                 # Get the root name by removing the no of the experiment.
+        
+        # String content: "C01.mpt"
+        filename_suffix = filename_suffix_start.split("_")[-1]              # Get the "Cxxxx.mpt" at the end.
+
+        # Int content: 05
+        start_no = int(filename_start[-2:])                                 # Split the name at the dash _ and remove the 2 characters "ca".
+
+
+
+        pluginargs = {
+            'extract_cycles': False, 'import_all_data': True,
+            'change_surface': False, 'surface': 1.0, 'surface_unit': "cm2",
+            'change_mass': False, 'mass': 1.0, 'mass_unit': "mg"}
+        
+        # Set color on all curves except the ones selected as references.
+        cvals = interface.GetColormap(
+                                        fields['colormap'],
+                                        invert=fields['invert_colormap'],
+                                        nvals = max(1, nb_files-len(experiments_black)))
+
+        # For some reason, the colormap generates transparent black if onlys one point is aksed.
+        if nb_files-len(experiments_black) == 1 and cvals[0,0]==0 and cvals[0,1]==0 and cvals[0,2]==0 and cvals[0,3]==0:
+            cvals[0,:] = [0,0,0,255] # so generate opaque black instead.
+        
+        # color_generator gives the next color each time next(color_generator) is called.
+        color_generator = (color for color in cvals)
+
+
+        interface.To('page1'); interface.To('graph1'); 
+
+        # Import every file from (filepath_start) to (filepath_start + nb_files)
+        for i in range(nb_files):
+            interface.ImportFilePlugin(
+                'EC-LAB CV',
+                filepath_prefix + filename_root + f"{i + start_no:02d}" + "_" + filename_suffix,
+                **pluginargs,
+                linked = True,
+                encoding = 'utf_8',
+                prefix = filename_root + f"{i + start_no:02d}" + "_",
+                suffix = '',
+                renames = {})
+
+
+            # Create a new current dataset with the convenient unit.
+
+            if fields['current_unit']=='mA':
+                current_unit_str = "mA"
+            elif fields['current_unit']=='uA':
+                current_unit_str = "uA"
+                interface.SetDataExpression(filename_root + f"{i + start_no:02d}" + "_<I>/" + current_unit_str,
+                                            "`" + filename_root + f"{i + start_no:02d}" + "_<I>/mA" + "`*1e3",
+                                            linked=True)
+            elif fields['current_unit']=='nA':
+                current_unit_str = "nA"
+                interface.SetDataExpression(filename_root + f"{i + start_no:02d}" + "_<I>/" + current_unit_str,
+                                            "`" + filename_root + f"{i + start_no:02d}" + "_<I>/mA" + "`*1e6",
+                                            linked=True)
+            elif fields['current_unit']=='pA':
+                current_unit_str = "pA"
+                interface.SetDataExpression(filename_root + f"{i + start_no:02d}" + "_<I>/" + current_unit_str,
+                                            "`" + filename_root + f"{i + start_no:02d}" + "_<I>/mA" + "`*1e9",
+                                            linked=True)
+           
+           
+            # If the xy plot does not already exist, create it.
+            if not (filename_root + f"{i + start_no:02d}" in interface.GetChildren(where='.')):
+                interface.Add('xy', name=filename_root + f"{i + start_no:02d}", autoadd=False)
+            
+            interface.To(filename_root + f"{i + start_no:02d}")
+            interface.Set('marker', 'none')
+            interface.Set('xData', filename_root + f"{i + start_no:02d}" + "_Ewe/V")
+            interface.Set('yData', filename_root + f"{i + start_no:02d}" + "_<I>/" + current_unit_str)
+            interface.Root.page1.graph1.x.label.val = "E_{we} (V) " + fields['ref_potential'] #*************************************************************
+            
+            interface.Root.page1.graph1.x.MinorTicks.hide.val = True
+            interface.Root.page1.graph1.x.autoRange.val = '+2%'
+            interface.Root.page1.graph1.y.label.val = "Current (" + current_unit_str + ")"
+            
+            interface.Root.page1.graph1.y.MinorTicks.hide.val = True
+
+
+
+            # Color of the experiments excluded from the colormap
+            if not (filename_root + f"{i + start_no:02d}" in experiments_black):                
+                color = next(color_generator)
+                if color[3] == 255:
+                    # opaque
+                    col = "#%02x%02x%02x" % (color[0], color[1], color[2])
+                else:
+                    # with transparency
+                    col = "#%02x%02x%02x%02x" % (color[0], color[1], color[2], color[3])
+            else:
+                col = "#000000ff"
+
+            interface.Set('color', col)
+
+
+            interface.To('..')
+            
+
+
+
+
+
+
+
+
+    
     
 
 
-plugins.toolspluginregistry.append(LoadUMEfilesPlugin)
+plugins.toolspluginregistry.append(LoadUMEfilesPluginCA)
+plugins.toolspluginregistry.append(LoadUMEfilesPluginCV)
