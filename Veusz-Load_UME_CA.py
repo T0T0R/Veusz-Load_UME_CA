@@ -19,9 +19,10 @@
 
 # Author: Arthur Langlard, arthur.langlard@univ-nantes.fr
 # Start of the project: 06-02-2023
-# Last modification: 08-02-2023
+# Last modification: 19-03-2023
 #
-# This software is a plugin for the Veusz software.
+# This software is a plugin for the Veusz software
+# (available at https://veusz.github.io/).
 
 
 import numpy
