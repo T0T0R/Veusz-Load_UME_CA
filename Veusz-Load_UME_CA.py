@@ -108,22 +108,24 @@ class LoadUMEfilesPluginCA(plugins.ToolsPlugin):
         # color_generator gives the next color each time next(color_generator) is called.
         color_generator = (color for color in cvals)
 
-
-        interface.To('page1'); interface.To('graph1'); 
+        interface.Root.Add('page', name="page_CA")
+        interface.Root.page_CA.Add('graph', name="graph_CA")
 
         # Import every file from (filepath_start) to (filepath_start + nb_files)
         for i in range(nb_files):
+            experiment_id = filename_root + f"{i + start_no:02d}"
+
             interface.ImportFilePlugin(
                 'EC-LAB CA',
-                filepath_prefix + filename_root + f"{i + start_no:02d}" + "_" + filename_suffix,
+                filepath_prefix + experiment_id + "_" + filename_suffix,
                 **pluginargs,
                 linked = True,
                 encoding = 'utf_8',
-                prefix = filename_root + f"{i + start_no:02d}" + "_",
+                prefix = experiment_id + "_",
                 suffix = '',
                 renames = {})
 
-            self.create_I_change_dataset(interface, filename_root + f"{i + start_no:02d}" + "_I Range", fields['spread_size'])
+            self.create_I_change_dataset(interface, experiment_id + "_I Range", fields['spread_size'])
 
 
             # Create a new current dataset with the convenient unit.
@@ -132,40 +134,40 @@ class LoadUMEfilesPluginCA(plugins.ToolsPlugin):
                 current_unit_str = "mA"
             elif fields['current_unit']=='uA':
                 current_unit_str = "uA"
-                interface.SetDataExpression(filename_root + f"{i + start_no:02d}" + "_<I>/" + current_unit_str,
-                                            "`" + filename_root + f"{i + start_no:02d}" + "_<I>/mA" + "`*1e3",
+                interface.SetDataExpression(experiment_id + "_<I>/" + current_unit_str,
+                                            "`" + experiment_id + "_<I>/mA" + "`*1e3",
                                             linked=True)
             elif fields['current_unit']=='nA':
                 current_unit_str = "nA"
-                interface.SetDataExpression(filename_root + f"{i + start_no:02d}" + "_<I>/" + current_unit_str,
-                                            "`" + filename_root + f"{i + start_no:02d}" + "_<I>/mA" + "`*1e6",
+                interface.SetDataExpression(experiment_id + "_<I>/" + current_unit_str,
+                                            "`" + experiment_id + "_<I>/mA" + "`*1e6",
                                             linked=True)
             elif fields['current_unit']=='pA':
                 current_unit_str = "pA"
-                interface.SetDataExpression(filename_root + f"{i + start_no:02d}" + "_<I>/" + current_unit_str,
-                                            "`" + filename_root + f"{i + start_no:02d}" + "_<I>/mA" + "`*1e9",
+                interface.SetDataExpression(experiment_id + "_<I>/" + current_unit_str,
+                                            "`" + experiment_id + "_<I>/mA" + "`*1e9",
                                             linked=True)
            
            
             # If the xy plot does not already exist, create it.
-            if not (filename_root + f"{i + start_no:02d}" in interface.GetChildren(where='.')):
-                interface.Add('xy', name=filename_root + f"{i + start_no:02d}", autoadd=False)
-            
-            interface.To(filename_root + f"{i + start_no:02d}")
-            interface.Set('marker', 'none')
-            interface.Set('xData', filename_root + f"{i + start_no:02d}" + "_time/s")
-            interface.Set('yData', filename_root + f"{i + start_no:02d}" + "_<I>/" + current_unit_str)
+            if not (experiment_id in interface.GetChildren(where='/page_CA/graph_CA')):
+                interface.Root.page_CA.graph_CA.Add('xy', name=experiment_id, autoadd=False)
+
+            interface.Root['page_CA']['graph_CA'][experiment_id].marker.val = 'none'
+
+            interface.Root['page_CA']['graph_CA'][experiment_id].xData.val = experiment_id + "_time/s"
+            interface.Root['page_CA']['graph_CA'][experiment_id].yData.val = experiment_id + "_<I>/" + current_unit_str
             interface.Root.page1.graph1.x.label.val = "Time (s)"
             
-            interface.Root.page1.graph1.x.MinorTicks.hide.val = True
-            interface.Root.page1.graph1.y.label.val = "Current (" + current_unit_str + ")"
+            interface.Root.page_CA.graph_CA.x.MinorTicks.hide.val = True
+            interface.Root.page_CA.graph_CA.y.label.val = "Current (" + current_unit_str + ")"
             
-            interface.Root.page1.graph1.y.MinorTicks.hide.val = True
+            interface.Root.page_CA.graph_CA.y.MinorTicks.hide.val = True
 
 
 
             # Color of the experiments excluded from the colormap
-            if not (filename_root + f"{i + start_no:02d}" in experiments_black):                
+            if not (experiment_id in experiments_black):                
                 color = next(color_generator)
                 if color[3] == 255:
                     # opaque
@@ -176,18 +178,18 @@ class LoadUMEfilesPluginCA(plugins.ToolsPlugin):
             else:
                 col = "#000000ff"
 
-            interface.Set('color', col)
+            interface.Root['page_CA']['graph_CA'][experiment_id].color.val = col
 
-
-            interface.To('..')
             
             if not fields['dataset_masked_type']=='None':
                 self.create_I_masked_plots(
                                             interface,
                                             fields['dataset_masked_type'],
-                                            filename_root + f"{i + start_no:02d}" + "_<I>/" + current_unit_str,
-                                            filename_root + f"{i + start_no:02d}" + "_time/s",
-                                            filename_root + f"{i + start_no:02d}" + "_I Range_change_M")
+                                            experiment_id + "_<I>/" + current_unit_str,
+                                            experiment_id + "_time/s",
+                                            experiment_id + "_I Range_change_M")
+            
+            
 
 
 
@@ -203,19 +205,20 @@ class LoadUMEfilesPluginCA(plugins.ToolsPlugin):
         """
 
         # Get the name of the complete graph (with no masked data) "experiment_ca05"
-        experiment_name = "_".join(dataset_I_full_str.split("_")[:-1])
-        color = interface.Root['page1']['graph1'][experiment_name].color.val
-        interface.Root['page1']['graph1'][experiment_name].hide.val = True
+        experiment_id = "_".join(dataset_I_full_str.split("_")[:-1])
+        col = interface.Root['page_CA']['graph_CA'][experiment_id].color.val
+        interface.Root['page_CA']['graph_CA'][experiment_id].hide.val = True
+        experiment_id_no = experiment_id + "_" + str(no_dataset)
 
-        if not (experiment_name + "_" + str(no_dataset) in interface.GetChildren(where='.')):
-            interface.Add('xy', name=experiment_name + "_" + str(no_dataset), autoadd=False)
+        if not (experiment_id_no in interface.GetChildren(where='/page_CA/graph_CA')):
+            interface.Root.page_CA.graph_CA.Add('xy', name=experiment_id_no, autoadd=False)
     
-        interface.To(experiment_name + "_" + str(no_dataset))
-        interface.Set('marker', 'none')
-        interface.Set('xData', dataset_t_full_str + "_" + str(no_dataset))
-        interface.Set('yData', dataset_I_full_str + "_" + str(no_dataset))
-        interface.Set('color', color)
-        interface.To('..')
+        interface.Root['page_CA']['graph_CA'][experiment_id_no].marker.val = 'none'
+
+        interface.Root['page_CA']['graph_CA'][experiment_id_no].xData.val = dataset_t_full_str + "_" + str(no_dataset)
+        interface.Root['page_CA']['graph_CA'][experiment_id_no].yData.val = dataset_I_full_str + "_" + str(no_dataset)
+            
+        interface.Root['page_CA']['graph_CA'][experiment_id_no].color.val = col
 
 
 
@@ -364,7 +367,11 @@ class LoadUMEfilesPluginCA(plugins.ToolsPlugin):
         # convolution:           ______/\____/\________/\_____________/\_
         # mask:                  ‾‾‾‾‾‾__‾‾‾‾__‾‾‾‾‾‾‾‾__‾‾‾‾‾‾‾‾‾‾‾‾‾__‾
 
-        interface.SetData(I_range_dataset_str + "_change_M", numpy.logical_not(numpy.ma.make_mask(I_change_dataset_spread, shrink=False)), symerr=None, negerr=None, poserr=None)
+        interface.SetData(I_range_dataset_str + "_change_M",
+                          numpy.logical_not(numpy.ma.make_mask(I_change_dataset_spread, shrink=False)),
+                          symerr=None,
+                          negerr=None,
+                          poserr=None)
 
 
 
