@@ -397,6 +397,7 @@ class LoadUMEfilesPluginCV(plugins.ToolsPlugin):
             plugins.FieldFilename('filename_start', descr="First file"),
             plugins.FieldInt('nb_files', descr="Number of files", default=1, minval=1),
             plugins.FieldCombo('current_unit', descr="Unit for current", default='nA', items=('mA', 'uA', 'nA', 'pA')),
+            plugins.FieldCombo('ref_potential', descr="Reference potential", default='vs pseudo-ref Pt', items=('', 'vs pseudo-ref Pt', 'vs Ag/AgCl sat.', 'vs SCE')),
             plugins.FieldTextMulti('ref', descr="Experiments to remove from the colormap"),
             plugins.FieldColormap('colormap', descr="Colormap of the curves", default="spectrum2"),
             plugins.FieldBool('invert_colormap', descr="Invert colormap", default=False),
@@ -436,7 +437,7 @@ class LoadUMEfilesPluginCV(plugins.ToolsPlugin):
 
 
         pluginargs = {
-            'extract_cycles': False, 'extract_steps': False, 'import_all_data': True,
+            'extract_cycles': False, 'import_all_data': True,
             'change_surface': False, 'surface': 1.0, 'surface_unit': "cm2",
             'change_mass': False, 'mass': 1.0, 'mass_unit': "mg"}
         
@@ -459,7 +460,7 @@ class LoadUMEfilesPluginCV(plugins.ToolsPlugin):
         # Import every file from (filepath_start) to (filepath_start + nb_files)
         for i in range(nb_files):
             interface.ImportFilePlugin(
-                'EC-LAB CA',
+                'EC-LAB CV',
                 filepath_prefix + filename_root + f"{i + start_no:02d}" + "_" + filename_suffix,
                 **pluginargs,
                 linked = True,
@@ -467,8 +468,6 @@ class LoadUMEfilesPluginCV(plugins.ToolsPlugin):
                 prefix = filename_root + f"{i + start_no:02d}" + "_",
                 suffix = '',
                 renames = {})
-
-            self.create_I_change_dataset(interface, filename_root + f"{i + start_no:02d}" + "_I Range", fields['spread_size'])
 
 
             # Create a new current dataset with the convenient unit.
@@ -498,9 +497,9 @@ class LoadUMEfilesPluginCV(plugins.ToolsPlugin):
             
             interface.To(filename_root + f"{i + start_no:02d}")
             interface.Set('marker', 'none')
-            interface.Set('xData', filename_root + f"{i + start_no:02d}" + "_time/s")
+            interface.Set('xData', filename_root + f"{i + start_no:02d}" + "_Ewe/V")
             interface.Set('yData', filename_root + f"{i + start_no:02d}" + "_<I>/" + current_unit_str)
-            interface.Root.page1.graph1.x.label.val = "Time (s)"
+            interface.Root.page1.graph1.x.label.val = "E_{we} (V) " + fields['ref_potential'] #*************************************************************
             
             interface.Root.page1.graph1.x.MinorTicks.hide.val = True
             interface.Root.page1.graph1.y.label.val = "Current (" + current_unit_str + ")"
@@ -526,155 +525,8 @@ class LoadUMEfilesPluginCV(plugins.ToolsPlugin):
 
             interface.To('..')
             
-            if not fields['dataset_masked_type']=='None':
-                self.create_I_masked_plots(
-                                            interface,
-                                            fields['dataset_masked_type'],
-                                            filename_root + f"{i + start_no:02d}" + "_<I>/" + current_unit_str,
-                                            filename_root + f"{i + start_no:02d}" + "_time/s",
-                                            filename_root + f"{i + start_no:02d}" + "_I Range_change_M")
 
 
-
-
-
-
-    def plot_masked(self, interface, no_dataset, dataset_I_full_str, dataset_t_full_str):
-        """Add a xy widget to plot a portion of a dataset.
-        no_dataset is the number of the portion.
-        dataset_I_full_str is the full name of the portion to plot ("experiment_ca05_<I>/mA").
-        dataset_t_full_str is the full name of the portion to plot ("experiment_ca05_time/s").
-        Return nothing.
-        """
-
-        # Get the name of the complete graph (with no masked data) "experiment_ca05"
-        experiment_name = "_".join(dataset_I_full_str.split("_")[:-1])
-        color = interface.Root['page1']['graph1'][experiment_name].color.val
-        interface.Root['page1']['graph1'][experiment_name].hide.val = True
-
-        if not (experiment_name + "_" + str(no_dataset) in interface.GetChildren(where='.')):
-            interface.Add('xy', name=experiment_name + "_" + str(no_dataset), autoadd=False)
-    
-        interface.To(experiment_name + "_" + str(no_dataset))
-        interface.Set('marker', 'none')
-        interface.Set('xData', dataset_t_full_str + "_" + str(no_dataset))
-        interface.Set('yData', dataset_I_full_str + "_" + str(no_dataset))
-        interface.Set('color', color)
-        interface.To('..')
-
-
-
-
-
-
-    def create_I_masked_plots(self, interface, dataset_masked_type, dataset_I_full_str, dataset_t_full_str, dataset_I_mask_full_str,):
-        """Create the multiple datasets from the splitting of the original dataset, according to 
-        the mask provided.
-        dataset_I_full_str is the name of the Y-dataset to split.
-        dataset_t_full_str is the name of the X-dataset to split.
-        dataset_I_mask_full_str is th name of mask dataset.
-        Return nothing.
-        """
-
-        dataset_I_full = interface.GetData(dataset_I_full_str)[0]
-        dataset_t_full = interface.GetData(dataset_t_full_str)[0]
-        # The mask is longer than the dataset, so trim it at the end:
-        dataset_I_mask_full = interface.GetData(dataset_I_mask_full_str)[0][:len(dataset_I_full)].astype(int)
-
-
-
-        #************************** Using expression datasets for storing data *************************
-
-        if dataset_masked_type == 'Expression dataset':
-            # Get a list of the start index and end index of every reliables data:
-            #
-            # Index: 0  1  2  3  4  5  6  7  8  9  10 11 12 13 14 15 16 17 18 19
-            #
-            # Mask:  ‾  ‾  ‾ |_  _ |‾  ‾  ‾  ‾ |_  __|‾‾ ‾‾ ‾‾|__|‾‾ ‾‾ ‾‾ ‾‾ ‾‾
-            #
-            # List: [(0,3), (5,9), (11,14), (15,20)]
-
-            list_indices = []
-            start_index, end_index = -1, -1
-            prev_mask_value = 0
-
-            for index, mask_value in enumerate(dataset_I_mask_full):
-
-                if mask_value - prev_mask_value > 0:            # If __|‾‾
-                    start_index = index
-                elif mask_value - prev_mask_value < 0:          # If ‾‾|__
-                    end_index = index
-                    list_indices.append((start_index, end_index))
-                
-                prev_mask_value = mask_value
-            
-            if end_index < start_index: # If the mask is 1 at the end, give a stop index.
-                end_index = len(dataset_I_mask_full)
-                list_indices.append((start_index, end_index))
-
-
-
-
-            # Create corresponding expression datasets with this list of indices.
-            for no_dataset, index_tuple in enumerate(list_indices):
-                i_start, i_stop = index_tuple[0], index_tuple[1]
-                interface.SetDataExpression(dataset_I_full_str + "_" + str(no_dataset),
-                                                "`" + dataset_I_full_str + "`[" + str(i_start) + ":" + str(i_stop) + "]",
-                                                linked=True)
-                interface.SetDataExpression(dataset_t_full_str + "_" + str(no_dataset),
-                                                "`" + dataset_t_full_str + "`[" + str(i_start) + ":" + str(i_stop) + "]",
-                                                linked=True)
-                
-                self.plot_masked(interface, no_dataset, dataset_I_full_str, dataset_t_full_str)
-                
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-        #************************** Using 1D datasets for storing data (raw data) *************************
-
-        if dataset_masked_type == '1D dataset':
-            dataset_It_full = numpy.column_stack((dataset_I_full, dataset_t_full, dataset_I_mask_full))
-            datasets_It_list = []
-            # [(I0,t0,m0)   [(I0,t0,m0)    [(I0,t0,m0)
-            #  (I1,t1,m1)    (I1,t1,m1)],   (I1,t1,m1)
-            #  (I2,t2,m2)                   (I2,t2,m2)]
-            #  (I3,t3,m3)],
-
-            
-
-            dataset_It = []
-            temp_dataset = True
-
-            for data_slice in dataset_It_full:          #   For every value of current/time
-                if data_slice[2] == 1:                  # if it is not masked
-                    dataset_It.append(data_slice[:2])   # add it to the temporary dataset.
-                    temp_dataset = True
-                elif temp_dataset:                                          #   If it is masked, the temporary dataset
-                    if len(dataset_It) > 0:
-                        datasets_It_list.append(numpy.stack(dataset_It))    # is done and added to the list of datasets.
-                    dataset_It = []                                         # The temporary dataset is reset.
-                    temp_dataset = False
-            
-            if len(dataset_It) > 0:                                 # If there are still values at the end that are
-                datasets_It_list.append(numpy.stack(dataset_It))    # not masked, the temporary dataset is added.
-            
-
-
-            for no_dataset, dataset_It in enumerate(datasets_It_list):
-                interface.SetData(dataset_I_full_str + "_" + str(no_dataset), dataset_It[:,0], symerr=None, negerr=None, poserr=None)
-                interface.SetData(dataset_t_full_str + "_" + str(no_dataset), dataset_It[:,1], symerr=None, negerr=None, poserr=None)
-                self.plot_masked(interface, no_dataset, dataset_I_full_str, dataset_t_full_str)
 
 
 
