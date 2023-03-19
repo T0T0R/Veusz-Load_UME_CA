@@ -108,7 +108,15 @@ class LoadUMEfilesPluginCA(plugins.ToolsPlugin):
         # color_generator gives the next color each time next(color_generator) is called.
         color_generator = (color for color in cvals)
 
-        interface.Root.Add('page', name="page_CA")
+        if ("page1" in interface.GetChildren(where='/')):
+            interface.Root.page1.Remove()
+
+        if not ("page_CA" in interface.GetChildren(where='/')):
+            interface.Root.Add('page', name="page_CA")
+
+        # Remove old graph to update all the plotted data:
+        if ("graph_CA" in interface.GetChildren(where='/page_CA')):
+            interface.Root.page_CA.graph_CA.Remove()
         interface.Root.page_CA.Add('graph', name="graph_CA")
 
         # Import every file from (filepath_start) to (filepath_start + nb_files)
@@ -157,9 +165,9 @@ class LoadUMEfilesPluginCA(plugins.ToolsPlugin):
 
             interface.Root['page_CA']['graph_CA'][experiment_id].xData.val = experiment_id + "_time/s"
             interface.Root['page_CA']['graph_CA'][experiment_id].yData.val = experiment_id + "_<I>/" + current_unit_str
-            interface.Root.page1.graph1.x.label.val = "Time (s)"
             
             interface.Root.page_CA.graph_CA.x.MinorTicks.hide.val = True
+            interface.Root.page_CA.graph_CA.x.label.val = "Time (s)"
             interface.Root.page_CA.graph_CA.y.label.val = "Current (" + current_unit_str + ")"
             
             interface.Root.page_CA.graph_CA.y.MinorTicks.hide.val = True
