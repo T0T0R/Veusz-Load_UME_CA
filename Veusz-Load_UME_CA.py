@@ -51,6 +51,7 @@ class LoadUMEfilesPluginCA(plugins.ToolsPlugin):
             plugins.FieldInt('nb_files', descr="Number of files", default=1, minval=1),
             plugins.FieldCombo('current_unit', descr="Unit for current", default='nA', items=('mA', 'uA', 'nA', 'pA')),
             plugins.FieldTextMulti('ref', descr="Experiments to remove from the colormap"),
+            plugins.FieldBool('load_analysis', descr="Load steps analysis file(s)", default=False),
             plugins.FieldInt('spread_size', descr="Width of current change", default=10, minval=4),
             plugins.FieldCombo('dataset_masked_type', descr="Dataset type for masked data", default='Expression dataset', items=('No masked data', 'Expression dataset', '1D dataset')),
             plugins.FieldColormap('colormap', descr="Colormap of the curves", default="spectrum2"),
@@ -66,7 +67,6 @@ class LoadUMEfilesPluginCA(plugins.ToolsPlugin):
         experiments_black = list(filter(None, fields['ref']))   # Remove empty strings, for instance in ["",""]
 
         nb_files = fields['nb_files']
-
         # String content: "C:/----/experiment_ca05_C01.mpt"
         filepath_start = fields['filename_start']
         
@@ -87,6 +87,8 @@ class LoadUMEfilesPluginCA(plugins.ToolsPlugin):
 
         # Int content: 05
         start_no = int(filename_start[-2:])                                 # Split the name at the dash _ and remove the 2 characters "ca".
+
+        load_steps_analysis = fields['load_analysis']
 
 
 
@@ -119,6 +121,18 @@ class LoadUMEfilesPluginCA(plugins.ToolsPlugin):
             interface.Root.page_CA.graph_CA.Remove()
         interface.Root.page_CA.Add('graph', name="graph_CA")
 
+
+        if load_steps_analysis:
+            if not ("page_CA_steps" in interface.GetChildren(where='/')):
+                interface.Root.Add('page', name="page_CA_steps")
+            
+            if ("graph_CA_steps" in interface.GetChildren(where='/page_CA_steps')):
+                interface.Root.page_CA_steps.graph_CA.Remove()
+        else:
+            if ("page_CA_steps" in interface.GetChildren(where='/')):
+                interface.Root.page_CA_steps.Remove()
+
+
         # Import every file from (filepath_start) to (filepath_start + nb_files)
         for i in range(nb_files):
             experiment_id = filename_root + f"{i + start_no:02d}"
@@ -134,6 +148,21 @@ class LoadUMEfilesPluginCA(plugins.ToolsPlugin):
                 renames = {})
 
             self.create_I_change_dataset(interface, experiment_id + "_I Range", fields['spread_size'])
+
+
+
+            if load_steps_analysis:
+                interface.ImportFileCSV(
+                filepath_prefix + experiment_id + "_" + filename_suffix[:-4] + "_sa.csv",
+                delimiter='\t',
+                headermode='1st',
+                linked = True,
+                encoding = 'utf_8',
+                prefix = experiment_id + "_",
+                renames = {})
+
+
+
 
 
             # Create a new current dataset with the convenient unit.
@@ -196,6 +225,12 @@ class LoadUMEfilesPluginCA(plugins.ToolsPlugin):
                                             experiment_id + "_<I>/" + current_unit_str,
                                             experiment_id + "_time/s",
                                             experiment_id + "_I Range_change_M")
+            
+
+
+            # Duplicate the graph in the page of the steps analysis.
+            if load_steps_analysis:
+               interface.Root['page_CA']['graph_CA'].Clone(interface.Root['page_CA_steps'], 'graph_CA_steps')   
             
             
 
