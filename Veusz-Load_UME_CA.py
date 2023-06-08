@@ -128,9 +128,11 @@ class LoadUMEfilesPluginCA(plugins.ToolsPlugin):
             
             if ("graph_CA_steps" in interface.GetChildren(where='/page_CA_steps')):
                 interface.Root.page_CA_steps.graph_CA.Remove()
+            
         else:
             if ("page_CA_steps" in interface.GetChildren(where='/')):
                 interface.Root.page_CA_steps.Remove()
+                
 
 
         # Import every file from (filepath_start) to (filepath_start + nb_files)
@@ -158,7 +160,7 @@ class LoadUMEfilesPluginCA(plugins.ToolsPlugin):
                 headermode='1st',
                 linked = True,
                 encoding = 'utf_8',
-                prefix = experiment_id + "_",
+                prefix = experiment_id + "_sa",
                 renames = {})
 
 
@@ -201,6 +203,11 @@ class LoadUMEfilesPluginCA(plugins.ToolsPlugin):
             interface.Root.page_CA.graph_CA.x.label.val = "Time (s)"
             interface.Root.page_CA.graph_CA.y.label.val = "Current (" + current_unit_str + ")"
 
+            
+            if load_steps_analysis:
+                if not ('graph_CA_steps' in interface.GetChildren(where='/page_CA_steps')):
+                    interface.Root['page_CA']['graph_CA'].Clone(interface.Root['page_CA_steps'], 'graph_CA_steps')
+            
 
 
             # Color of the experiments excluded from the colormap
@@ -217,7 +224,29 @@ class LoadUMEfilesPluginCA(plugins.ToolsPlugin):
 
             interface.Root['page_CA']['graph_CA'][experiment_id].color.val = col
 
+
+
+
+            if load_steps_analysis:
+                interface.Root['page_CA']['graph_CA'][experiment_id].Clone(interface.Root['page_CA_steps']['graph_CA_steps'], str(experiment_id))
             
+                peaks_time = interface.GetData(experiment_id + "_sa_Time/s")[0]
+                peaks_height = interface.GetData(experiment_id + "_sa_Height/A")[0]
+                peaks_indices = interface.GetData(experiment_id + "_sa_Index")[0]
+                current_values = interface.GetData(experiment_id + "_<I>/" + current_unit_str)[0]
+                
+                for i, time_height_index in enumerate(zip(peaks_time, peaks_height, peaks_indices)):
+                    interface.Root['page_CA_steps']['graph_CA_steps'].Add('label', name="experiment_id_step_"+str(i))
+                    interface.Root['page_CA_steps']['graph_CA_steps']['experiment_id_step_'+str(i)].label.val = '{:.3f}'.format(time_height_index[1]*1e6) + " nA"
+                    interface.Root['page_CA_steps']['graph_CA_steps']['experiment_id_step_'+str(i)].positioning.val = 'axes'
+                    interface.Root['page_CA_steps']['graph_CA_steps']['experiment_id_step_'+str(i)].xPos.val = time_height_index[0]
+                    interface.Root['page_CA_steps']['graph_CA_steps']['experiment_id_step_'+str(i)].yPos.val = current_values[int(time_height_index[2])]
+                    interface.Root['page_CA_steps']['graph_CA_steps']['experiment_id_step_'+str(i)].Text.color.val = col
+            
+
+
+
+
             if not fields['dataset_masked_type']=='None':
                 self.create_I_masked_plots(
                                             interface,
@@ -226,11 +255,12 @@ class LoadUMEfilesPluginCA(plugins.ToolsPlugin):
                                             experiment_id + "_time/s",
                                             experiment_id + "_I Range_change_M")
             
+            
 
+        
 
-            # Duplicate the graph in the page of the steps analysis.
-            if load_steps_analysis:
-               interface.Root['page_CA']['graph_CA'].Clone(interface.Root['page_CA_steps'], 'graph_CA_steps')   
+            
+
             
             
 
