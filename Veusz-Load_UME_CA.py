@@ -127,7 +127,7 @@ class LoadUMEfilesPluginCA(plugins.ToolsPlugin):
                 interface.Root.Add('page', name="page_CA_steps")
             
             if ("graph_CA_steps" in interface.GetChildren(where='/page_CA_steps')):
-                interface.Root.page_CA_steps.graph_CA.Remove()
+                interface.Root.page_CA_steps.page_CA_steps.Remove()
             
         else:
             if ("page_CA_steps" in interface.GetChildren(where='/')):
@@ -228,7 +228,8 @@ class LoadUMEfilesPluginCA(plugins.ToolsPlugin):
 
 
             if load_steps_analysis:
-                interface.Root['page_CA']['graph_CA'][experiment_id].Clone(interface.Root['page_CA_steps']['graph_CA_steps'], str(experiment_id))
+                if not(i==0):   # The first curve has already been cloned when cloning the graph widget.
+                    interface.Root['page_CA']['graph_CA'][experiment_id].Clone(interface.Root['page_CA_steps']['graph_CA_steps'], str(experiment_id))
             
                 peaks_time = interface.GetData(experiment_id + "_sa_Time/s")[0]
                 peaks_height = interface.GetData(experiment_id + "_sa_Height/A")[0]
