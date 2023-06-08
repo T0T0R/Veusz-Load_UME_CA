@@ -235,15 +235,19 @@ class LoadUMEfilesPluginCA(plugins.ToolsPlugin):
                 peaks_height = interface.GetData(experiment_id + "_sa_Height/A")[0]
                 peaks_indices = interface.GetData(experiment_id + "_sa_Index")[0]
                 current_values = interface.GetData(experiment_id + "_<I>/" + current_unit_str)[0]
+                time_values = interface.GetData(experiment_id + "_time/s")[0]
                 
+
+                # Label each step
                 for i, time_height_index in enumerate(zip(peaks_time, peaks_height, peaks_indices)):
-                    interface.Root['page_CA_steps']['graph_CA_steps'].Add('label', name="experiment_id_step_"+str(i))
-                    interface.Root['page_CA_steps']['graph_CA_steps']['experiment_id_step_'+str(i)].label.val = '{:.3f}'.format(time_height_index[1]*1e6) + " nA"
-                    interface.Root['page_CA_steps']['graph_CA_steps']['experiment_id_step_'+str(i)].positioning.val = 'axes'
-                    interface.Root['page_CA_steps']['graph_CA_steps']['experiment_id_step_'+str(i)].xPos.val = time_height_index[0]
-                    interface.Root['page_CA_steps']['graph_CA_steps']['experiment_id_step_'+str(i)].yPos.val = current_values[int(time_height_index[2])]
-                    interface.Root['page_CA_steps']['graph_CA_steps']['experiment_id_step_'+str(i)].Text.color.val = col
-            
+                    interface.Root['page_CA_steps']['graph_CA_steps'].Add('label', name=str(experiment_id)+"_step_"+str(i))
+                    interface.Root['page_CA_steps']['graph_CA_steps'][str(experiment_id)+"_step_"+str(i)].label.val = '{:.3f}'.format(time_height_index[1]*1e6) + " nA"
+                    interface.Root['page_CA_steps']['graph_CA_steps'][str(experiment_id)+"_step_"+str(i)].positioning.val = 'axes'
+                    interface.Root['page_CA_steps']['graph_CA_steps'][str(experiment_id)+"_step_"+str(i)].xPos.val = time_height_index[0]
+                    interface.Root['page_CA_steps']['graph_CA_steps'][str(experiment_id)+"_step_"+str(i)].yPos.val = current_values[int(time_height_index[2])]
+                    interface.Root['page_CA_steps']['graph_CA_steps'][str(experiment_id)+"_step_"+str(i)].Text.color.val = col
+
+                interface.Root['page_CA_steps']['graph_CA_steps'][experiment_id].key.val = str(len(peaks_time)) + "steps / " + str(int(time_values[-1] - time_values[0])) + "s : " + "{:.2e} Hz".format(len(peaks_time)/(time_values[-1] - time_values[0]))
 
 
 
@@ -257,7 +261,8 @@ class LoadUMEfilesPluginCA(plugins.ToolsPlugin):
                                             experiment_id + "_I Range_change_M")
             
             
-
+            if load_steps_analysis:
+                interface.Root["page_CA_steps"]['graph_CA_steps'].Add('key', name='key', autoadd=False)
         
 
             
