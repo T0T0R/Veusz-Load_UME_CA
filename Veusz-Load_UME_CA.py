@@ -265,8 +265,8 @@ class LoadUMEfilesPluginCA(plugins.ToolsPlugin):
                                             experiment_id + "_I Range_change_M")
             
             
-            if load_steps_analysis:
-                interface.Root["page_CA_steps"]['graph_CA_steps'].Add('key', name='key', autoadd=False)
+        if load_steps_analysis:
+            interface.Root["page_CA_steps"]['graph_CA_steps'].Add('key', name='key', autoadd=False)
         
 
             
