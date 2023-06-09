@@ -52,6 +52,7 @@ class LoadUMEfilesPluginCA(plugins.ToolsPlugin):
             plugins.FieldCombo('current_unit', descr="Unit for current", default='nA', items=('mA', 'uA', 'nA', 'pA')),
             plugins.FieldTextMulti('ref', descr="Experiments to remove from the colormap"),
             plugins.FieldBool('load_analysis', descr="Load steps analysis file(s)", default=False),
+            plugins.FieldInt('electrode_diam_um', descr="Diameter of the electrode (um)", default=10),
             plugins.FieldInt('spread_size', descr="Width of current change", default=10, minval=4),
             plugins.FieldCombo('dataset_masked_type', descr="Dataset type for masked data", default='Expression dataset', items=('No masked data', 'Expression dataset', '1D dataset')),
             plugins.FieldColormap('colormap', descr="Colormap of the curves", default="spectrum2"),
@@ -89,6 +90,7 @@ class LoadUMEfilesPluginCA(plugins.ToolsPlugin):
         start_no = int(filename_start[-2:])                                 # Split the name at the dash _ and remove the 2 characters "ca".
 
         load_steps_analysis = fields['load_analysis']
+        electrode_diam = fields['electrode_diam_um']
 
 
 
@@ -129,9 +131,18 @@ class LoadUMEfilesPluginCA(plugins.ToolsPlugin):
             if ("graph_CA_steps" in interface.GetChildren(where='/page_CA_steps')):
                 interface.Root.page_CA_steps.graph_CA_steps.Remove()
             
+            if not ("page_CA_steps_size" in interface.GetChildren(where='/')):
+                interface.Root.Add('page', name="page_CA_steps_size")
+            
+            if ("graph_CA_steps_size" in interface.GetChildren(where='/page_CA_steps_size')):
+                interface.Root.page_CA_steps_size.graph_CA_steps_size.Remove()
+            
         else:
             if ("page_CA_steps" in interface.GetChildren(where='/')):
                 interface.Root.page_CA_steps.Remove()
+
+            if ("page_CA_steps_size" in interface.GetChildren(where='/')):
+                interface.Root.page_CA_steps_size.Remove()
                 
 
 
@@ -211,6 +222,10 @@ class LoadUMEfilesPluginCA(plugins.ToolsPlugin):
             if load_steps_analysis:
                 if not ('graph_CA_steps' in interface.GetChildren(where='/page_CA_steps')):
                     interface.Root['page_CA']['graph_CA'].Clone(interface.Root['page_CA_steps'], 'graph_CA_steps')
+                
+                if not ('graph_CA_steps_size' in interface.GetChildren(where='/page_CA_steps_size')):
+                    interface.Root['page_CA']['graph_CA'].Clone(interface.Root['page_CA_steps_size'], 'graph_CA_steps_size')
+
             
 
 
@@ -234,6 +249,7 @@ class LoadUMEfilesPluginCA(plugins.ToolsPlugin):
             if load_steps_analysis:
                 if not(i==0):   # The first curve has already been cloned when cloning the graph widget.
                     interface.Root['page_CA']['graph_CA'][experiment_id].Clone(interface.Root['page_CA_steps']['graph_CA_steps'], str(experiment_id))
+                    interface.Root['page_CA']['graph_CA'][experiment_id].Clone(interface.Root['page_CA_steps_size']['graph_CA_steps_size'], str(experiment_id))
             
                 peaks_time = interface.GetData(experiment_id + "_sa_Time/s")[0]
                 peaks_height = interface.GetData(experiment_id + "_sa_Height/A")[0]
@@ -243,6 +259,7 @@ class LoadUMEfilesPluginCA(plugins.ToolsPlugin):
                 
 
                 # Label each step
+                electrode_radius = electrode_diam/2
                 for i, time_height_index in enumerate(zip(peaks_time, peaks_height, peaks_indices)):
                     interface.Root['page_CA_steps']['graph_CA_steps'].Add('label', name=str(experiment_id)+"_step_"+str(i))
                     interface.Root['page_CA_steps']['graph_CA_steps'][str(experiment_id)+"_step_"+str(i)].label.val = '{:.3f}'.format(time_height_index[1]*1e6) + " nA"
@@ -251,8 +268,23 @@ class LoadUMEfilesPluginCA(plugins.ToolsPlugin):
                     interface.Root['page_CA_steps']['graph_CA_steps'][str(experiment_id)+"_step_"+str(i)].yPos.val = current_values[int(time_height_index[2])]
                     interface.Root['page_CA_steps']['graph_CA_steps'][str(experiment_id)+"_step_"+str(i)].Text.color.val = col
 
-                interface.Root['page_CA_steps']['graph_CA_steps'][experiment_id].key.val = str(len(peaks_time)) + "steps / " + str(int(time_values[-1] - time_values[0])) + "s : " + "{:.2e} Hz".format(len(peaks_time)/(time_values[-1] - time_values[0]))
 
+                    # Current in amps from nA.
+                    i_before = numpy.mean(current_values[max(0,int(time_height_index[2])-5) : int(time_height_index[2])+1]) * 1e9
+                    i_after = numpy.mean(current_values[int(time_height_index[2]) : min(len(current_values),int(time_height_index[2])+5) ]) * 1e9
+
+                    # Radii in um.
+                    particle_radius = electrode_radius*numpy.sqrt(i_before**2 - i_after**2)/i_before
+                    electrode_radius = electrode_radius - particle_radius
+                    interface.Root['page_CA_steps_size']['graph_CA_steps_size'].Add('label', name=str(experiment_id)+"_step_"+str(i))
+                    interface.Root['page_CA_steps_size']['graph_CA_steps_size'][str(experiment_id)+"_step_"+str(i)].label.val = str(int(particle_radius*1e3)) + " nm"
+                    interface.Root['page_CA_steps_size']['graph_CA_steps_size'][str(experiment_id)+"_step_"+str(i)].positioning.val = 'axes'
+                    interface.Root['page_CA_steps_size']['graph_CA_steps_size'][str(experiment_id)+"_step_"+str(i)].xPos.val = time_height_index[0]
+                    interface.Root['page_CA_steps_size']['graph_CA_steps_size'][str(experiment_id)+"_step_"+str(i)].yPos.val = current_values[int(time_height_index[2])]
+                    interface.Root['page_CA_steps_size']['graph_CA_steps_size'][str(experiment_id)+"_step_"+str(i)].Text.color.val = col
+
+                interface.Root['page_CA_steps']['graph_CA_steps'][experiment_id].key.val = str(len(peaks_time)) + "steps / " + str(int(time_values[-1] - time_values[0])) + "s : " + "{:.2e} Hz".format(len(peaks_time)/(time_values[-1] - time_values[0]))
+                interface.Root['page_CA_steps_size']['graph_CA_steps_size'][experiment_id].key.val = str(len(peaks_time)) + "steps / " + str(int(time_values[-1] - time_values[0])) + "s : " + "{:.2e} Hz".format(len(peaks_time)/(time_values[-1] - time_values[0]))
 
 
 
@@ -267,6 +299,7 @@ class LoadUMEfilesPluginCA(plugins.ToolsPlugin):
             
         if load_steps_analysis:
             interface.Root["page_CA_steps"]['graph_CA_steps'].Add('key', name='key', autoadd=False)
+            interface.Root["page_CA_steps_size"]['graph_CA_steps_size'].Add('key', name='key', autoadd=False)
         
 
             
