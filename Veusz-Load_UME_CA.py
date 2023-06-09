@@ -275,9 +275,8 @@ class LoadUMEfilesPluginCA(plugins.ToolsPlugin):
 
                     # Radii in um.
                     particle_radius = electrode_radius*numpy.sqrt(i_before**2 - i_after**2)/i_before
-                    electrode_radius = electrode_radius - particle_radius
                     interface.Root['page_CA_steps_size']['graph_CA_steps_size'].Add('label', name=str(experiment_id)+"_step_"+str(i))
-                    interface.Root['page_CA_steps_size']['graph_CA_steps_size'][str(experiment_id)+"_step_"+str(i)].label.val = str(int(particle_radius*1e3)) + " nm"
+                    interface.Root['page_CA_steps_size']['graph_CA_steps_size'][str(experiment_id)+"_step_"+str(i)].label.val = str(int(particle_radius*2e3)) + " nm"
                     interface.Root['page_CA_steps_size']['graph_CA_steps_size'][str(experiment_id)+"_step_"+str(i)].positioning.val = 'axes'
                     interface.Root['page_CA_steps_size']['graph_CA_steps_size'][str(experiment_id)+"_step_"+str(i)].xPos.val = time_height_index[0]
                     interface.Root['page_CA_steps_size']['graph_CA_steps_size'][str(experiment_id)+"_step_"+str(i)].yPos.val = current_values[int(time_height_index[2])]
