@@ -127,7 +127,7 @@ class LoadUMEfilesPluginCA(plugins.ToolsPlugin):
                 interface.Root.Add('page', name="page_CA_steps")
             
             if ("graph_CA_steps" in interface.GetChildren(where='/page_CA_steps')):
-                interface.Root.page_CA_steps.page_CA_steps.Remove()
+                interface.Root.page_CA_steps.graph_CA_steps.Remove()
             
         else:
             if ("page_CA_steps" in interface.GetChildren(where='/')):
@@ -154,14 +154,18 @@ class LoadUMEfilesPluginCA(plugins.ToolsPlugin):
 
 
             if load_steps_analysis:
-                interface.ImportFileCSV(
-                filepath_prefix + experiment_id + "_" + filename_suffix[:-4] + "_sa.csv",
-                delimiter='\t',
-                headermode='1st',
-                linked = True,
-                encoding = 'utf_8',
-                prefix = experiment_id + "_sa",
-                renames = {})
+                # Some files can be absent.
+                try:
+                    interface.ImportFileCSV(
+                    filepath_prefix + experiment_id + "_" + filename_suffix[:-4] + "_sa.csv",
+                    delimiter='\t',
+                    headermode='1st',
+                    linked = True,
+                    encoding = 'utf_8',
+                    prefix = experiment_id + "_sa",
+                    renames = {})
+                except:
+                    pass
 
 
 
