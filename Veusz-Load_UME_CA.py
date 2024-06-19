@@ -274,7 +274,8 @@ class LoadUMEfilesPluginCA(plugins.ToolsPlugin):
                     i_after = numpy.mean(current_values[int(time_height_index[2]) : min(len(current_values),int(time_height_index[2])+5) ]) * 1e9
 
                     # Radii in um.
-                    particle_radius = electrode_radius*numpy.sqrt(i_before**2 - i_after**2)/i_before
+                    #particle_radius = electrode_radius*numpy.sqrt(i_before**2 - i_after**2)/i_before
+                    particle_radius = electrode_radius*numpy.sqrt((i_before - i_after)/i_before)
                     interface.Root['page_CA_steps_size']['graph_CA_steps_size'].Add('label', name=str(experiment_id)+"_step_"+str(i))
                     interface.Root['page_CA_steps_size']['graph_CA_steps_size'][str(experiment_id)+"_step_"+str(i)].label.val = str(int(particle_radius*2e3)) + " nm"
                     interface.Root['page_CA_steps_size']['graph_CA_steps_size'][str(experiment_id)+"_step_"+str(i)].positioning.val = 'axes'
@@ -475,7 +476,8 @@ class LoadUMEfilesPluginCA(plugins.ToolsPlugin):
         
         # The line below is a dataset containing the differential of the current range. 
         # Uncomment this line for debug purposes:
-        #interface.SetData(I_range_dataset_str + "_change", I_change_dataset_spread, symerr=None, negerr=None, poserr=None)
+        #/interface.SetData(I_range_dataset_str + "_change", I_change_dataset, symerr=None, negerr=None, poserr=None)
+        #interface.SetData(I_range_dataset_str + "_change_spread", I_change_dataset_spread, symerr=None, negerr=None, poserr=None)
 
         # Creating a mask from the convoluted dataset:
         #
